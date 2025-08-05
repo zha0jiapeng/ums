@@ -23,7 +23,7 @@ import cn.hutool.core.lang.UUID;
  * 
  * @author ruoyi
  */
-@RestController
+@RestController("/captcha")
 public class CaptchaController
 {
     @Resource(name = "captchaProducer")

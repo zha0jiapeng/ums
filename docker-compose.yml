@@ -1,0 +1,70 @@
+version: '3'
+
+services:
+  ums-app:
+    image: ums-server:2.0
+    container_name: ums-server
+    ports:
+      - "38080:8080"
+    environment:
+      # 激活生产环境配置
+      - SPRING_PROFILES_ACTIVE=prod
+      # 明确设置数据库连接信息，覆盖任何默认值
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/ums_new?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=fbmMTEz7TuHx
+      # 明确设置Redis连接信息
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_DATABASE=0
+      # 设置日志级别，帮助调试
+      - LOGGING_LEVEL_COM_RUOYI=debug
+      - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_JDBC=debug
+      - TZ=Asia/Shanghai
+      # 指定外部配置文件路径
+      - SPRING_CONFIG_ADDITIONAL_LOCATION=file:/app/config/
+    volumes:
+      # 映射整个resources目录（可选，如果需要映射更多配置文件）
+      - ./src/main/resources:/app/config
+    depends_on:
+      - mysql
+      - redis
+    restart: always
+    networks:
+      - ums-network
+
+  mysql:
+    image: mysql:8.0.42
+    container_name: ums-mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
+    ports:
+      - "33306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=fbmMTEz7TuHx
+      - MYSQL_DATABASE=ums_new
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 初始化数据库
+      - ./sql:/docker-entrypoint-initdb.d
+    restart: always
+    networks:
+      - ums-network
+  
+  redis:
+    image: redis:6.2
+    container_name: ums-redis
+    ports:
+      - "36379:6379"
+    volumes:
+      - redis-data:/data
+    restart: always
+    networks:
+      - ums-network
+
+networks:
+  ums-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data: 

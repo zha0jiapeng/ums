@@ -1,0 +1,224 @@
+pipeline {
+    agent any
+    
+    environment {
+        // 项目配置
+        PROJECT_NAME = 'ums-server'
+        VERSION = '2.0'
+        DOCKER_IMAGE = 'ums-server:2.0'
+        
+        // 构建产物
+        JAR_FILE = 'target/ums-0.0.1-SNAPSHOT.jar'
+        
+        // 部署配置 - 请根据实际情况修改
+        DEPLOY_HOST = '192.168.1.100'  // 修改为您的服务器IP
+        DEPLOY_USER = 'deploy'
+        DEPLOY_PATH = '/opt/ums-server'
+    }
+    
+    options {
+        // 构建历史保留
+        buildDiscarder(logRotator(numToKeepStr: '5'))
+        // 超时设置
+        timeout(time: 20, unit: 'MINUTES')
+    }
+    
+    stages {
+        stage('代码检出') {
+            steps {
+                checkout scm
+                echo "✅ 代码检出完成，分支: ${env.BRANCH_NAME}"
+            }
+        }
+        
+        stage('Maven构建') {
+            steps {
+                script {
+                    echo "🔨 开始Maven构建..."
+                    
+                    // 清理并编译
+                    sh 'mvn clean compile -DskipTests'
+                    
+                    // 打包
+                    sh 'mvn package -DskipTests'
+                    
+                    // 验证构建产物
+                    sh "ls -la ${JAR_FILE}"
+                    
+                    echo "✅ Maven构建完成"
+                }
+            }
+            post {
+                success {
+                    // 归档构建产物
+                    archiveArtifacts artifacts: "${JAR_FILE}", fingerprint: true
+                    echo "📦 JAR包已归档"
+                }
+                failure {
+                    echo "❌ Maven构建失败"
+                }
+            }
+        }
+        
+        stage('Docker构建') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                    branch 'develop'
+                }
+            }
+            steps {
+                script {
+                    echo "🐳 开始构建Docker镜像..."
+                    
+                    // 重命名JAR文件以匹配Dockerfile
+                    sh 'cp target/ums-0.0.1-SNAPSHOT.jar ums-0.0.1-SNAPSHOT.jar'
+                    
+                    // 构建Docker镜像
+                    docker.build(DOCKER_IMAGE)
+                    
+                    echo "✅ Docker镜像构建完成: ${DOCKER_IMAGE}"
+                }
+            }
+            post {
+                failure {
+                    echo "❌ Docker构建失败"
+                }
+            }
+        }
+        
+        stage('部署到测试环境') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                script {
+                    echo "🚀 开始部署到测试环境..."
+                    
+                    // 使用docker-compose部署
+                    sh """
+                        # 停止现有服务
+                        docker-compose down || true
+                        
+                        # 启动所有服务
+                        docker-compose up -d
+                        
+                        # 等待服务启动
+                        sleep 30
+                        
+                        # 检查服务状态
+                        docker-compose ps
+                    """
+                    
+                    echo "✅ 测试环境部署完成"
+                }
+            }
+            post {
+                failure {
+                    echo "❌ 测试环境部署失败"
+                    sh 'docker-compose logs ums-app || true'
+                }
+            }
+        }
+        
+        stage('部署到生产环境') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                }
+            }
+            steps {
+                script {
+                    echo "🚀 准备部署到生产环境..."
+                    
+                    // 生产环境部署确认
+                    timeout(time: 5, unit: 'MINUTES') {
+                        input message: '确认部署到生产环境？', ok: '确认部署'
+                    }
+                    
+                    echo "🚀 开始部署到生产环境..."
+                    
+                    // 使用docker-compose部署
+                    sh """
+                        # 停止现有服务
+                        docker-compose down || true
+                        
+                        # 启动所有服务
+                        docker-compose up -d
+                        
+                        # 等待服务启动
+                        sleep 30
+                        
+                        # 检查服务状态
+                        docker-compose ps
+                    """
+                    
+                    echo "✅ 生产环境部署完成"
+                }
+            }
+            post {
+                failure {
+                    echo "❌ 生产环境部署失败"
+                    sh 'docker-compose logs ums-app || true'
+                }
+            }
+        }
+        
+        stage('健康检查') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                    branch 'develop'
+                }
+            }
+            steps {
+                script {
+                    echo "🏥 开始健康检查..."
+                    
+                    // 等待应用完全启动
+                    sh 'sleep 60'
+                    
+                    // 检查应用状态
+                    sh """
+                        # 检查容器状态
+                        docker ps | grep ums-server || echo "容器未运行"
+                        
+                        # 检查应用端口
+                        curl -f http://localhost:38080/actuator/health || echo "健康检查失败"
+                        
+                        # 检查应用日志
+                        docker logs ums-server --tail 20 || true
+                    """
+                    
+                    echo "✅ 健康检查完成"
+                }
+            }
+            post {
+                failure {
+                    echo "❌ 健康检查失败"
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            // 清理工作空间
+            cleanWs()
+            echo "🧹 工作空间已清理"
+        }
+        success {
+            echo "🎉 流水线执行成功！"
+            echo "📱 应用访问地址: http://localhost:38080"
+        }
+        failure {
+            echo "💥 流水线执行失败！"
+        }
+        unstable {
+            echo "⚠️ 流水线执行不稳定！"
+        }
+    }
+} 

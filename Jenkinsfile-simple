@@ -1,0 +1,76 @@
+pipeline {
+    agent any
+    
+    environment {
+        PROJECT_NAME = 'ums-server'
+        VERSION = '2.0'
+        DOCKER_IMAGE = 'ums-server:2.0'
+    }
+    
+    stages {
+        stage('代码检出') {
+            steps {
+                checkout scm
+                echo "检出代码完成"
+            }
+        }
+        
+        stage('Maven构建') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+        
+        stage('Docker构建') {
+            steps {
+                script {
+                    // 重命名JAR文件以匹配Dockerfile中的名称
+                    sh 'cp target/ums-0.0.1-SNAPSHOT.jar ums-0.0.1-SNAPSHOT.jar'
+                    
+                    // 构建Docker镜像
+                    docker.build(DOCKER_IMAGE)
+                }
+            }
+        }
+        
+        stage('部署') {
+            steps {
+                script {
+                    // 停止并删除旧容器
+                    sh 'docker stop ums-server || true'
+                    sh 'docker rm ums-server || true'
+                    
+                    // 启动新容器
+                    sh """
+                        docker run -d \
+                            --name ums-server \
+                            -p 38080:8080 \
+                            --network ums-network \
+                            -e SPRING_PROFILES_ACTIVE=prod \
+                            -e SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/ums_new?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true \
+                            -e SPRING_DATASOURCE_USERNAME=root \
+                            -e SPRING_DATASOURCE_PASSWORD=fbmMTEz7TuHx \
+                            -e SPRING_REDIS_HOST=redis \
+                            -e SPRING_REDIS_PORT=6379 \
+                            -e SPRING_REDIS_DATABASE=0 \
+                            -e TZ=Asia/Shanghai \
+                            ${DOCKER_IMAGE}
+                    """
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo "构建成功！"
+        }
+        failure {
+            echo "构建失败！"
+        }
+    }
+} 

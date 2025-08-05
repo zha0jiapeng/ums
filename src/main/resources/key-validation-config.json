@@ -1,0 +1,98 @@
+[
+  {
+    "key": "password",
+    "scope": 1,
+    "description": "用户密码",
+    "maxSize": 1024
+  },
+  {
+    "key": "username",
+    "scope": 2,
+    "description": "用户名",
+    "maxSize": 256
+  },
+  {
+    "key": "nickname",
+    "scope": 2,
+    "description": "用户昵称",
+    "maxSize": 512
+  },
+  {
+    "key": "avatar",
+    "scope": 2,
+    "description": "用户头像",
+    "maxSize": 5242880
+  },
+  {
+    "key": "email",
+    "scope": 2,
+    "description": "用户邮箱",
+    "maxSize": 512
+  },
+  {
+    "key": "phone",
+    "scope": 1,
+    "description": "手机号",
+    "maxSize": 32
+  },
+  {
+    "key": "phone_number",
+    "scope": 1,
+    "description": "手机号（带国家码）",
+    "maxSize": 64
+  },
+  {
+    "key": "ma_openid",
+    "scope": 1,
+    "description": "小程序openid",
+    "maxSize": 128
+  },
+  {
+    "key": "mp_openid",
+    "scope": 1,
+    "description": "微信公众号openid",
+    "maxSize": 128
+  },
+  {
+    "key": "unionid",
+    "scope": 1,
+    "description": "微信UnionID",
+    "maxSize": 128
+  },
+  {
+    "key": "create_time",
+    "scope": 2,
+    "description": "创建时间",
+    "maxSize": 64
+  },
+  {
+    "key": "pd-expert-privileges",
+    "scope": 1,
+    "description": "PD专家权限配置",
+    "maxSize": 1048576
+  },
+  {
+    "key": "user-settings",
+    "scope": 2,
+    "description": "用户个人设置",
+    "maxSize": 524288
+  },
+  {
+    "key": "device-config",
+    "scope": 1,
+    "description": "设备配置信息",
+    "maxSize": 2097152
+  },
+  {
+    "key": "report-template",
+    "scope": 2,
+    "description": "报告模板",
+    "maxSize": 5242880
+  },
+  {
+    "key": "profile-image",
+    "scope": 2,
+    "description": "个人资料图片",
+    "maxSize": 5242880
+  }
+] 

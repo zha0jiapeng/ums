@@ -1,0 +1,81 @@
+spring:
+  # 生产环境文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+      enabled: true
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driverClassName: com.mysql.cj.jdbc.Driver
+    druid:
+      url: jdbc:mysql://mysql:3306/ums_new?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+      username: root
+      password: fbmMTEz7TuHx
+      initialSize: 10
+      minIdle: 20
+      maxActive: 50
+      maxWait: 60000
+      connectTimeout: 30000
+      socketTimeout: 60000
+      timeBetweenEvictionRunsMillis: 60000
+      minEvictableIdleTimeMillis: 300000
+      maxEvictableIdleTimeMillis: 900000
+      validationQuery: SELECT 1 FROM DUAL
+      testWhileIdle: true
+      testOnBorrow: false
+      testOnReturn: false
+      webStatFilter:
+        enabled: true
+      statViewServlet:
+        enabled: true
+        allow:
+        url-pattern: /druid/*
+        login-username: admin
+        login-password: fbmMTEz7TuHx
+      filter:
+        stat:
+          enabled: true
+          log-slow-sql: true
+          slow-sql-millis: 1000
+          merge-sql: true
+        wall:
+          config:
+            multi-statement-allow: true
+  redis:
+    host: redis
+    port: 6379
+    database: 0
+    password: fbmMTEz7TuHx
+    timeout: 10s
+    lettuce:
+      pool:
+        min-idle: 0
+        max-idle: 8
+        max-active: 8
+        max-wait: -1ms
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+server:
+  port: 8080
+  servlet:
+    context-path: /ums
+
+mybatis:
+  mapper-locations: classpath:/mapper/*.xml
+
+glb:
+  uri: https://192.168.110.11:40080
+  username: admin
+  password: Pd700@sdmt
+
+# 生产环境版本配置
+app:
+  version:
+    name: UMS User Management System
+    version: 1.0.0-RELEASE
+    build-time: 2025-08-01
+    author: Global Team
+    description-key: system.version.description

@@ -1,0 +1,67 @@
+spring:
+  profiles:
+    active: local
+  # 国际化配置
+  messages:
+    basename: messages
+    encoding: UTF-8
+    cache-duration: 3600
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+      enabled: true
+
+# 服务器压缩配置
+server:
+  compression:
+    enabled: true
+    # 支持的压缩算法，br(Brotli)和gzip
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
+    min-response-size: 1024
+    # 排除的用户代理（空表示允许所有）
+    excluded-user-agents:
+
+# 微信配置
+wx:
+  qrcodeExpireSecond: 300
+  mp:
+    appId: wx61a08b71b0e0734b
+    appSecret: 45a703e79286a0bdaa62fa7968a452c8
+    # 微信服务器配置项
+    token: woshigelubu000111zuishuaideren  # 与微信后台配置保持一致
+    encodingAESKey: 9VtC8abSzUbu3SGZhbNnEv1VfrBEwMOciJkI0NpFPyr  # 消息加解密密钥，可选
+  ma:
+    appId: wx993744c2a647252b
+    appSecret: e24b5fa8b71d43d5e0045fc0df29ec77
+    # 微信服务器配置项
+    token: GLBMP5421  # 与微信后台配置保持一致
+    encodingAESKey: 4lx7W3PAlGl8rjrnFrC4j4VePyi3oivBux16mdTASn3  # 消息加解密密钥，可选
+
+# JWT配置
+jwt:
+  # 密钥
+  secret: UMSSecretKey
+  # 有效期（秒）
+  expiration: 86400
+  # 有效期（秒）
+  refresh-expiration: 2592000
+  # 请求头中的令牌键名
+  token-header: Authorization
+  # 令牌前缀
+  token-prefix: GlbUmsBearer
+
+# 用户配置
+user:
+  # 默认密码
+  default-password: 123456
+
+# 应用版本信息配置
+app:
+  version:
+    name: UMS User Management System
+    version: 1.0.0
+    build-time: 2025-08-01
+    author: Global Team
+    description-key: system.version.description

@@ -18,6 +18,7 @@ pipeline {
         
         stage('Maven Build') {
             steps {
+                sh 'pwd'
                 sh 'mvn clean package -DskipTests'
                 archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
             }

@@ -1,7 +1,7 @@
 version: '3'
 
 services:
-  ums-app:
+  ums-server:
     image: ums-server:2.0
     container_name: ums-server
     ports:

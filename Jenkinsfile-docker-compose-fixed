@@ -1,0 +1,93 @@
+pipeline {
+    agent any
+    
+    environment {
+        PROJECT_NAME = 'ums-server'
+        VERSION = '2.0'
+        DOCKER_IMAGE = 'ums-server:2.0'
+        DEPLOY_PATH = '/opt/ums-server'
+    }
+    
+    stages {
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+                echo "Code checkout completed"
+            }
+        }
+        
+        stage('Maven Build') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+        
+        stage('Docker Build') {
+            steps {
+                script {
+                    // Rename JAR file to match Dockerfile
+                    sh 'cp target/ums-0.0.1-SNAPSHOT.jar ums-0.0.1-SNAPSHOT.jar'
+                    
+                    // Build Docker image
+                    docker.build(DOCKER_IMAGE)
+                }
+            }
+        }
+        
+        stage('Docker Compose Deploy') {
+            steps {
+                script {
+                    // Deploy using docker-compose
+                    sh """
+                        # Stop existing services
+                        docker-compose down || true
+                        
+                        # Start all services (MySQL, Redis, and application)
+                        docker-compose up -d
+                        
+                        # Wait for services to start
+                        sleep 30
+                        
+                        # Check service status
+                        docker-compose ps
+                    """
+                }
+            }
+        }
+        
+        stage('Health Check') {
+            steps {
+                script {
+                    // Wait for application to start
+                    sh 'sleep 60'
+                    
+                    // Check application health
+                    sh """
+                        # Check container status
+                        docker ps | grep ums-server
+                        
+                        # Check application port
+                        curl -f http://localhost:38080/actuator/health || echo "Health check failed"
+                    """
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo "Deployment successful! Application running at http://localhost:38080"
+        }
+        failure {
+            echo "Deployment failed!"
+            script {
+                // Show container logs for debugging
+                sh 'docker-compose logs ums-app || true'
+            }
+        }
+    }
+} 

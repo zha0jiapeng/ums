@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: local
+    active: prod
   # 国际化配置
   messages:
     basename: messages

@@ -1,167 +1,31 @@
 package com.global.ums.utils;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
+import com.global.ums.entity.UmsPropertyKeys;
+import com.global.ums.service.UmsPropertyKeysService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
 public class KeyValidationUtils {
-    
+
     private static Map<String, KeyConfig> allowedKeys = new HashMap<>();
-    private static volatile long lastModified = 0;
-    
-    private WatchService watchService;
-    private ScheduledExecutorService executorService;
-    private Path configPath;
-    
+
+    private static UmsPropertyKeysService propertyKeysService;
+
+    @Autowired
+    public void setPropertyKeysService(UmsPropertyKeysService propertyKeysService) {
+        KeyValidationUtils.propertyKeysService = propertyKeysService;
+    }
+
     @PostConstruct
     public void init() {
         loadKeyConfig();
-        startFileWatcher();
-        startPeriodicCheck();
-    }
-    
-    @PreDestroy
-    public void destroy() {
-        if (watchService != null) {
-            try {
-                watchService.close();
-            } catch (IOException e) {
-                log.error("关闭文件监听器失败", e);
-            }
-        }
-        if (executorService != null) {
-            executorService.shutdown();
-        }
-    }
-    
-    /**
-     * 启动文件监听器
-     */
-    private void startFileWatcher() {
-        try {
-            // 尝试获取配置文件的实际路径
-            String configFilePath = getConfigFilePath();
-            if (configFilePath != null) {
-                configPath = Paths.get(configFilePath);
-                Path configDir = configPath.getParent();
-                
-                watchService = FileSystems.getDefault().newWatchService();
-                configDir.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
-                
-                // 启动监听线程
-                Thread watchThread = new Thread(this::watchForChanges);
-                watchThread.setDaemon(true);
-                watchThread.setName("KeyValidation-FileWatcher");
-                watchThread.start();
-                
-                log.info("启动文件监听器，监听配置文件: {}", configPath);
-            }
-        } catch (Exception e) {
-            log.warn("启动文件监听器失败，将使用定时检查: {}", e.getMessage());
-        }
-    }
-    
-    /**
-     * 启动定时检查（作为文件监听的备用方案）
-     */
-    private void startPeriodicCheck() {
-        executorService = Executors.newSingleThreadScheduledExecutor();
-        executorService.scheduleWithFixedDelay(this::checkAndReloadConfig, 30, 30, TimeUnit.SECONDS);
-        log.info("启动定时检查，每30秒检查一次配置文件变更");
-    }
-    
-    /**
-     * 获取配置文件的实际路径
-     */
-    private String getConfigFilePath() {
-        try {
-            // 1. 优先监听外部配置文件
-            java.io.File externalFile = new java.io.File("/app/config/key-validation-config.json");
-            if (externalFile.exists()) {
-                return externalFile.getAbsolutePath();
-            }
-            
-            // 2. 回退到classpath文件
-            ClassPathResource resource = new ClassPathResource("key-validation-config.json");
-            if (resource.exists()) {
-                return resource.getFile().getAbsolutePath();
-            }
-        } catch (Exception e) {
-            log.debug("无法获取配置文件实际路径: {}", e.getMessage());
-        }
-        return null;
-    }
-    
-    /**
-     * 文件监听循环
-     */
-    private void watchForChanges() {
-        while (true) {
-            try {
-                WatchKey key = watchService.take();
-                
-                for (WatchEvent<?> event : key.pollEvents()) {
-                    WatchEvent.Kind<?> kind = event.kind();
-                    
-                    if (kind == StandardWatchEventKinds.OVERFLOW) {
-                        continue;
-                    }
-                    
-                    Path fileName = (Path) event.context();
-                    if ("key-validation-config.json".equals(fileName.toString())) {
-                        log.info("检测到配置文件变更，重新加载配置");
-                        // 延迟一下，确保文件写入完成
-                        Thread.sleep(1000);
-                        reloadConfig();
-                    }
-                }
-                
-                boolean valid = key.reset();
-                if (!valid) {
-                    break;
-                }
-                
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            } catch (Exception e) {
-                log.error("文件监听异常", e);
-            }
-        }
-    }
-    
-    /**
-     * 检查并重新加载配置（定时任务使用）
-     */
-    private void checkAndReloadConfig() {
-        try {
-            if (configPath != null && Files.exists(configPath)) {
-                long currentModified = Files.getLastModifiedTime(configPath).toMillis();
-                if (currentModified > lastModified) {
-                    log.info("检测到配置文件时间戳变更，重新加载配置");
-                    reloadConfig();
-                }
-            }
-        } catch (Exception e) {
-            log.error("检查配置文件变更失败", e);
-        }
     }
     
     /**
@@ -170,84 +34,33 @@ public class KeyValidationUtils {
     public static void reloadConfig() {
         synchronized (KeyValidationUtils.class) {
             try {
-                InputStream inputStream = null;
-                String configSource = "";
-                
-                // 1. 首先尝试从外部配置路径读取（用于Docker热更新）
-                try {
-                    java.io.File externalFile = new java.io.File("/app/config/key-validation-config.json");
-                    if (externalFile.exists()) {
-                        inputStream = new java.io.FileInputStream(externalFile);
-                        configSource = "外部文件: " + externalFile.getAbsolutePath();
-                        log.info("从外部配置文件读取: {}", configSource);
-                    }
-                } catch (Exception e) {
-                    log.debug("无法读取外部配置文件: {}", e.getMessage());
+                if (propertyKeysService == null) {
+                    log.warn("UmsPropertyKeysService 未初始化，无法加载配置");
+                    return;
                 }
-                
-                // 2. 如果外部文件不存在，从classpath读取
-                if (inputStream == null) {
-                    ClassPathResource resource = new ClassPathResource("key-validation-config.json");
-                    if (resource.exists()) {
-                        inputStream = resource.getInputStream();
-                        configSource = "classpath: key-validation-config.json";
-                        log.info("从classpath读取配置文件");
-                    } else {
-                        log.warn("Key配置文件 key-validation-config.json 不存在");
-                        return;
-                    }
-                }
-                
+
+                // 从数据库加载配置
+                Map<String, UmsPropertyKeys> keysMap = propertyKeysService.getAllKeysMap();
                 Map<String, KeyConfig> newAllowedKeys = new HashMap<>();
-                
-                try {
-                    StringBuilder jsonContent = new StringBuilder();
-                    byte[] buffer = new byte[1024];
-                    int bytesRead;
-                    while ((bytesRead = inputStream.read(buffer)) != -1) {
-                        jsonContent.append(new String(buffer, 0, bytesRead, StandardCharsets.UTF_8));
-                    }
-                    
-                    JSONArray configArray = JSON.parseArray(jsonContent.toString());
-                    
-                    if (configArray != null) {
-                        for (int i = 0; i < configArray.size(); i++) {
-                            JSONObject keyConfigJson = configArray.getJSONObject(i);
-                            String key = keyConfigJson.getString("key");
-                            if (key == null || key.isEmpty()) {
-                                log.warn("配置文件中存在无效的key配置，跳过: {}", keyConfigJson);
-                                continue;
-                            }
-                            KeyConfig keyConfig = new KeyConfig();
-                            keyConfig.setKey(key); // 设置key用于国际化
-                            keyConfig.setScope(keyConfigJson.getInteger("scope"));
-                            keyConfig.setDescription(keyConfigJson.getString("description"));
-                            keyConfig.setMaxSize(keyConfigJson.getLong("maxSize"));
-                            
-                            newAllowedKeys.put(key, keyConfig);
-                        }
-                    }
-                    
-                    // 原子性更新配置
-                    allowedKeys = newAllowedKeys;
-                    lastModified = System.currentTimeMillis();
-                    
-                    log.info("🔄 成功重新加载 {} 个允许的key配置 (来源: {})", allowedKeys.size(), configSource);
-                    
-                } finally {
-                    if (inputStream != null) {
-                        try {
-                            inputStream.close();
-                        } catch (IOException e) {
-                            log.warn("关闭配置文件流失败: {}", e.getMessage());
-                        }
-                    }
+
+                for (Map.Entry<String, UmsPropertyKeys> entry : keysMap.entrySet()) {
+                    UmsPropertyKeys propertyKey = entry.getValue();
+                    KeyConfig keyConfig = new KeyConfig();
+                    keyConfig.setKey(propertyKey.getKey());
+                    keyConfig.setScope(propertyKey.getScope());
+                    keyConfig.setDescription(propertyKey.getDescription());
+                    keyConfig.setMaxSize(propertyKey.getSize());
+
+                    newAllowedKeys.put(propertyKey.getKey(), keyConfig);
                 }
-                
-            } catch (IOException e) {
-                log.error("重新加载Key配置文件失败: {}", e.getMessage());
+
+                // 原子性更新配置
+                allowedKeys = newAllowedKeys;
+
+                log.info("成功从数据库加载 {} 个允许的key配置", allowedKeys.size());
+
             } catch (Exception e) {
-                log.error("重新解析Key配置文件失败: {}", e.getMessage());
+                log.error("从数据库加载Key配置失败", e);
             }
         }
     }

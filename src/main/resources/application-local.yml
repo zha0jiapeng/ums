@@ -9,7 +9,7 @@ spring:
     type: com.alibaba.druid.pool.DruidDataSource
     driverClassName: com.mysql.cj.jdbc.Driver
     druid:
-      url: jdbc:mysql://localhost:3306/ums_new?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+      url: jdbc:mysql://192.168.110.10:33306/ums_new?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
       username: root
       password: fbmMTEz7TuHx
       initialSize: 5
@@ -43,8 +43,8 @@ spring:
           config:
             multi-statement-allow: true
   redis:
-    host: localhost
-    port: 6379
+    host: 192.168.110.10
+    port: 36379
     database: 0
     password:
     timeout: 10s

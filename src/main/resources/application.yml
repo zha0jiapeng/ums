@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: prod
+    active: local
   # 国际化配置
   messages:
     basename: messages
@@ -65,3 +65,12 @@ app:
     build-time: 2025-08-01
     author: Global Team
     description-key: system.version.description
+
+# 属性键配置
+property:
+  keys:
+    # 自动刷新缓存的时间间隔（毫秒），默认30秒
+    # 设置为0可以禁用定时刷新（不推荐）
+    # 即使禁用定时刷新，缓存未命中时仍会实时查询数据库
+    refresh:
+      interval: 30000

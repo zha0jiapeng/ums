@@ -6,12 +6,12 @@ import cn.binarywang.wx.miniapp.bean.WxMaJscode2SessionResult;
 import cn.binarywang.wx.miniapp.bean.WxMaPhoneNumberInfo;
 import cn.hutool.core.date.DateUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.global.ums.constant.UserTypeConstant;
 import com.global.ums.dto.TokenDTO;
 import com.global.ums.entity.QrcodeInfo;
 import com.global.ums.entity.User;
 import com.global.ums.entity.UserProperties;
 import com.global.ums.enums.QrcodeScanStatus;
+import com.global.ums.enums.UserType;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.*;
 import com.global.ums.utils.*;
@@ -272,7 +272,7 @@ public class MiniappServiceImpl implements IMiniappService {
                 //没注册过
                 user = new User();
                 user.setUniqueId(unionid);
-                user.setType(UserTypeConstant.WECHAT);
+                user.setType(UserType.USER.getValue());
                 userService.save(user);
                 wechatRegister(phoneNumber, openid, unionid, user);
             }
@@ -331,7 +331,7 @@ public class MiniappServiceImpl implements IMiniappService {
             }
 
             String phoneNumber = null;
-            List<UserProperties> properties = userPropertiesService.getByUserId(user.getId());
+            List<UserProperties> properties = userPropertiesService.getByUserId(user.getId(),null);
             for(UserProperties item : properties){
                 if(item.getKey().equals("phone_number")){
                     phoneNumber =  new String(item.getValue());
@@ -408,7 +408,7 @@ public class MiniappServiceImpl implements IMiniappService {
                     return AjaxResult.errorI18n("miniapp.system.user.not.found");
                 }
                 String phoneNumber = null;
-                List<UserProperties> properties = userPropertiesService.getByUserId(user.getId());
+                List<UserProperties> properties = userPropertiesService.getByUserId(user.getId(),null);
                 for(UserProperties item : properties){
                     if(item.getKey().equals("phone_number")){
                         phoneNumber =  new String(item.getValue());

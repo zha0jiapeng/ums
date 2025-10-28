@@ -50,6 +50,7 @@ public class KeyValidationUtils {
                     keyConfig.setScope(propertyKey.getScope());
                     keyConfig.setDescription(propertyKey.getDescription());
                     keyConfig.setMaxSize(propertyKey.getSize());
+                    keyConfig.setHidden(propertyKey.getHidden());
 
                     newAllowedKeys.put(propertyKey.getKey(), keyConfig);
                 }
@@ -74,16 +75,58 @@ public class KeyValidationUtils {
     
     /**
      * 检查key是否被允许
+     * 如果缓存中不存在，会尝试从数据库实时查询
      */
     public static boolean isKeyAllowed(String key) {
-        return allowedKeys.containsKey(key);
+        if (allowedKeys.containsKey(key)) {
+            return true;
+        }
+
+        // 缓存未命中，尝试从数据库实时查询
+        if (propertyKeysService != null) {
+            UmsPropertyKeys propertyKey = propertyKeysService.getByKey(key);
+            if (propertyKey != null) {
+                // 更新本地缓存
+                KeyConfig keyConfig = new KeyConfig();
+                keyConfig.setKey(propertyKey.getKey());
+                keyConfig.setScope(propertyKey.getScope());
+                keyConfig.setDescription(propertyKey.getDescription());
+                keyConfig.setMaxSize(propertyKey.getSize());
+                keyConfig.setHidden(propertyKey.getHidden());
+                allowedKeys.put(propertyKey.getKey(), keyConfig);
+
+                log.debug("从数据库加载新的key配置: {}", key);
+                return true;
+            }
+        }
+
+        return false;
     }
     
     /**
      * 获取key的配置
+     * 如果缓存中不存在，会尝试从数据库实时查询
      */
     public static KeyConfig getKeyConfig(String key) {
-        return allowedKeys.get(key);
+        KeyConfig config = allowedKeys.get(key);
+
+        // 缓存未命中，尝试从数据库实时查询
+        if (config == null && propertyKeysService != null) {
+            UmsPropertyKeys propertyKey = propertyKeysService.getByKey(key);
+            if (propertyKey != null) {
+                config = new KeyConfig();
+                config.setKey(propertyKey.getKey());
+                config.setScope(propertyKey.getScope());
+                config.setDescription(propertyKey.getDescription());
+                config.setMaxSize(propertyKey.getSize());
+                config.setHidden(propertyKey.getHidden());
+                allowedKeys.put(propertyKey.getKey(), config);
+
+                log.debug("从数据库加载新的key配置: {}", key);
+            }
+        }
+
+        return config;
     }
     
     /**
@@ -129,19 +172,23 @@ public class KeyValidationUtils {
         private String description;
         private Long maxSize;
         private String key; // 用于国际化
-        
+        private Integer hidden; // 是否隐藏
+
         // getter/setter
         public Integer getScope() { return scope; }
         public void setScope(Integer scope) { this.scope = scope; }
-        
+
         public String getDescription() { return description; }
         public void setDescription(String description) { this.description = description; }
-        
+
         public Long getMaxSize() { return maxSize; }
         public void setMaxSize(Long maxSize) { this.maxSize = maxSize; }
-        
+
         public String getKey() { return key; }
         public void setKey(String key) { this.key = key; }
+
+        public Integer getHidden() { return hidden; }
+        public void setHidden(Integer hidden) { this.hidden = hidden; }
         
         /**
          * 获取国际化描述

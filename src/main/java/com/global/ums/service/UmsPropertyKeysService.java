@@ -30,4 +30,11 @@ public interface UmsPropertyKeysService extends IService<UmsPropertyKeys> {
      * 刷新缓存
      */
     void refreshCache();
+
+    /**
+     * 检查该 key 是否在 UserProperties 表中使用过
+     * @param key 属性键名
+     * @return true-已使用, false-未使用
+     */
+    boolean isKeyUsedInUserProperties(String key);
 }

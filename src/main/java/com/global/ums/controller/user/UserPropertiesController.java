@@ -68,8 +68,9 @@ public class UserPropertiesController {
         userProperties.setValue(bytes);
         // 自动推断数据类型
         userProperties.setDataType(DataTypeUtils.inferDataType(bytes).getValue());
-        userProperties.setScope(keyConfig.getScope()); // 使用配置文件中的scope
-        
+        userProperties.setScope(keyConfig.getScope()); // 使用配置中的scope
+        userProperties.setHidden(keyConfig.getHidden()); // 使用配置中的hidden
+
         return userPropertiesService.saveUserProperties(userProperties);
     }
 

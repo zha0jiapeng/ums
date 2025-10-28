@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.global.ums.entity.UmsPropertyKeys;
 import com.global.ums.entity.User;
 import com.global.ums.entity.UserGroup;
 import com.global.ums.entity.UserProperties;
 import com.global.ums.mapper.UserPropertiesMapper;
 import com.global.ums.result.AjaxResult;
+import com.global.ums.service.UmsPropertyKeysService;
 import com.global.ums.service.UserGroupService;
 import com.global.ums.service.UserPropertiesService;
 import com.global.ums.service.UserService;
@@ -31,11 +33,12 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
     private final ApplicationContext applicationContext;
     private UserService userService;
     private UserGroupService userGroupService;
-    
+    private UmsPropertyKeysService propertyKeysService;
+
     public UserPropertiesServiceImpl(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
     }
-    
+
     /**
      * 懒加载UserService，避免循环依赖
      */
@@ -45,7 +48,7 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
         }
         return userService;
     }
-    
+
     /**
      * 懒加载UserGroupService，避免循环依赖
      */
@@ -56,11 +59,31 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
         return userGroupService;
     }
 
+    /**
+     * 懒加载UmsPropertyKeysService，避免循环依赖
+     */
+    private UmsPropertyKeysService getPropertyKeysService() {
+        if (propertyKeysService == null) {
+            propertyKeysService = applicationContext.getBean(UmsPropertyKeysService.class);
+        }
+        return propertyKeysService;
+    }
+
     @Override
-    public List<UserProperties> getByUserId(Long userId) {
+    public List<UserProperties> getByUserId(Long userId, Boolean isHidden) {
         LambdaQueryWrapper<UserProperties> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(UserProperties::getUserId, userId);
-        return this.list(queryWrapper);
+        // 注意：isHidden 参数保留但不使用，因为 hidden 字段已从数据库移除
+        // hidden 信息现在从 ums_property_keys 表中动态获取
+        List<UserProperties> properties = this.list(queryWrapper);
+
+        // 如果需要按 hidden 过滤，在查询后过滤
+        if (isHidden != null) {
+            properties.forEach(this::fillPropertyKeysInfo);
+            properties.removeIf(prop -> !isHidden.equals(prop.getHidden()));
+        }
+
+        return properties;
     }
     
     @Override
@@ -185,9 +208,22 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
             userProperties.setUserId(userId);
             userProperties.setKey(key);
             userProperties.setValue(value);
-            userProperties.setScope(2);
+            // 注意：scope 字段已从数据库移除，现在从 ums_property_keys 表中动态获取
             list.add(userProperties);
         }
         return saveOrUpdateBatch(list);
     }
-} 
+
+    @Override
+    public void fillPropertyKeysInfo(UserProperties property) {
+        if (property != null && property.getKey() != null) {
+            UmsPropertyKeys propertyKey = getPropertyKeysService().getByKey(property.getKey());
+            if (propertyKey != null) {
+                property.setDataType(propertyKey.getDataType());
+                property.setHidden(propertyKey.getHidden());
+                property.setScope(propertyKey.getScope());
+                property.setDescription(propertyKey.getDescription());
+            }
+        }
+    }
+}

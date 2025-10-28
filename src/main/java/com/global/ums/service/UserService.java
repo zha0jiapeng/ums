@@ -22,13 +22,15 @@ public interface UserService extends IService<User> {
     
     /**
      * 分页获取用户视图对象列表
-     * 
+     *
      * @param page 分页参数
      * @param type 用户类型
      * @param uniqueId 唯一标识
+     * @param category 类别（用户属性）
+     * @param propertyType 属性类型（用户属性）
      * @return 分页用户视图对象
      */
-    Page<User> getUserPage(Page<User> page, Integer type, String uniqueId);
+    Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, String category, String propertyType);
 
     AjaxResult addUser(User user);
 } 

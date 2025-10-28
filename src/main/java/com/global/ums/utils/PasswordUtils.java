@@ -61,6 +61,52 @@ public class PasswordUtils {
         String newEncryptedPassword = encryptPassword(password, salt);
         return newEncryptedPassword.equals(encryptedPassword);
     }
+
+    public static void main(String[] args) {
+        // 测试密码
+        String originalPassword = "123456";
+
+        // 生成盐
+        String salt = PasswordUtils.generateSalt();
+
+        // 加密密码
+        String encryptedPassword = PasswordUtils.encryptPassword(originalPassword, salt);
+
+        // 转换为数据库存储格式（字节数组）
+        byte[] passwordBytes = PasswordUtils.toBytes(encryptedPassword, salt);
+
+        // 组合格式（加密密码:盐）
+        String storedFormat = formatPassword(encryptedPassword, salt);
+
+        // 输出所有信息
+        System.out.println("========== 密码加密信息 ==========");
+        System.out.println("原始密码: " + originalPassword);
+        System.out.println("生成的盐 (Salt): " + salt);
+        System.out.println("加密后的密码: " + encryptedPassword);
+        System.out.println("存储格式 (加密密码:盐): " + storedFormat);
+        System.out.println("字节数组长度: " + passwordBytes.length + " bytes");
+        System.out.println("字节数组 (用于直接插入数据库): ");
+        System.out.println("  " + new String(passwordBytes, StandardCharsets.UTF_8));
+        System.out.println("\n========== SQL 插入示例 ==========");
+        System.out.println("-- 如果直接插入 ums_user_properties 表：");
+        System.out.println("INSERT INTO ums_user_properties (user_id, `key`, `value`) VALUES");
+        System.out.println("  (1, 'password', '" + storedFormat + "');");
+        System.out.println("\n========== 验证测试 ==========");
+
+        // 验证密码是否正确
+        boolean isValid = verifyPassword(originalPassword, salt, encryptedPassword);
+        System.out.println("密码验证结果: " + (isValid ? "✓ 通过" : "✗ 失败"));
+
+        // 模拟从数据库读取后验证
+        String[] parsed = fromBytes(passwordBytes);
+        boolean isValidFromDB = verifyPassword(originalPassword, parsed[1], parsed[0]);
+        System.out.println("从字节数组验证: " + (isValidFromDB ? "✓ 通过" : "✗ 失败"));
+
+        // 测试错误密码
+        boolean isInvalid = verifyPassword("wrong_password", salt, encryptedPassword);
+        System.out.println("错误密码验证: " + (isInvalid ? "✗ 异常" : "✓ 正确拒绝"));
+        System.out.println("=================================");
+    }
     
     /**
      * 将密码和盐组合成存储格式

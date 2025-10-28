@@ -3,9 +3,12 @@ package com.global.ums.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.global.ums.entity.UmsPropertyKeys;
+import com.global.ums.entity.UserProperties;
 import com.global.ums.mapper.UmsPropertyKeysMapper;
 import com.global.ums.service.UmsPropertyKeysService;
+import com.global.ums.service.UserPropertiesService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -25,6 +28,9 @@ public class UmsPropertyKeysServiceImpl extends ServiceImpl<UmsPropertyKeysMappe
      * 缓存所有配置，key -> UmsPropertyKeys
      */
     private final Map<String, UmsPropertyKeys> keysCache = new ConcurrentHashMap<>();
+
+    @Autowired
+    private UserPropertiesService userPropertiesService;
 
     @PostConstruct
     public void init() {
@@ -60,7 +66,7 @@ public class UmsPropertyKeysServiceImpl extends ServiceImpl<UmsPropertyKeysMappe
     @Override
     public void refreshCache() {
         try {
-            List<UmsPropertyKeys> allKeys = list();
+            List<UmsPropertyKeys> allKeys = super.list();
             keysCache.clear();
             for (UmsPropertyKeys key : allKeys) {
                 if (key.getKey() != null && !key.getKey().isEmpty()) {
@@ -71,5 +77,12 @@ public class UmsPropertyKeysServiceImpl extends ServiceImpl<UmsPropertyKeysMappe
         } catch (Exception e) {
             log.error("刷新属性键配置缓存失败", e);
         }
+    }
+
+    @Override
+    public boolean isKeyUsedInUserProperties(String key) {
+        LambdaQueryWrapper<UserProperties> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(UserProperties::getKey, key);
+        return userPropertiesService.count(wrapper) > 0;
     }
 }

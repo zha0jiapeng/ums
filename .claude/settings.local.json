@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mvn help:describe:*)"
+      "Bash(mvn help:describe:*)",
+      "Bash(mvn dependency:resolve:*)",
+      "Bash(mvn clean compile:*)",
+      "Bash(mvn exec:java:*)",
+      "Bash(mvn compile:*)",
+      "Bash(cat:*)",
+      "Bash(mvn spring-boot:run:*)"
     ],
     "deny": [],
     "ask": []

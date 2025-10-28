@@ -3,9 +3,9 @@ package com.global.ums.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.global.ums.constant.UserTypeConstant;
 import com.global.ums.entity.User;
 import com.global.ums.entity.UserGroup;
+import com.global.ums.enums.UserType;
 import com.global.ums.mapper.UserGroupMapper;
 import com.global.ums.service.UserGroupService;
 import com.global.ums.service.UserService;
@@ -137,7 +137,7 @@ public class UserGroupServiceImpl extends ServiceImpl<UserGroupMapper, UserGroup
         }
         
         // 验证上级用户是否为组类型
-        if (parentUser.getType() == null || parentUser.getType() != UserTypeConstant.USER_GROUP) {
+        if (parentUser.getType() == null || parentUser.getType() != UserType.USER_GROUP.getValue()) {
             return false;
         }
         

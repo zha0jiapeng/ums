@@ -138,6 +138,28 @@ Property key definitions moved from `key-validation-config.json` to database tab
 - **application-local.yml** - Local development overrides
 - **application-prod.yml** - Production-specific settings
 
+### Property Keys Auto-Refresh
+The system automatically refreshes property key configurations from the database:
+
+**Auto-Refresh Mechanism:**
+- **Scheduled Task**: Runs every 30 seconds (configurable via `property.keys.refresh.interval`)
+- **Cache Miss Fallback**: Immediately queries database when a key is not in cache
+- **Manual Refresh**: Still available via `POST /system/property-keys/refresh`
+
+**Configuration:**
+```yaml
+property:
+  keys:
+    refresh:
+      interval: 30000  # Milliseconds, default 30s
+```
+
+**Behavior:**
+- Add new keys directly to database → Available within 30s (or immediately on first use)
+- No application restart needed
+- No manual API call required
+- Three-tier caching strategy for optimal performance
+
 ### Key Configuration Areas
 
 **JWT Settings:**

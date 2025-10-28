@@ -18,7 +18,7 @@ public interface UserPropertiesService extends IService<UserProperties> {
      * @param userId 用户ID
      * @return 属性列表
      */
-    List<UserProperties> getByUserId(Long userId);
+    List<UserProperties> getByUserId(Long userId,Boolean isHidden);
     
     /**
      * 根据用户ID和属性键获取属性
@@ -34,4 +34,10 @@ public interface UserPropertiesService extends IService<UserProperties> {
     AjaxResult saveUserProperties(UserProperties userProperties);
 
     boolean saveUserPropertiesMap(Long id, Map<String,byte[]> map);
+
+    /**
+     * 填充属性的配置信息（从 ums_property_keys 表查询）
+     * 包括: dataType, hidden, scope, description
+     */
+    void fillPropertyKeysInfo(UserProperties property);
 } 

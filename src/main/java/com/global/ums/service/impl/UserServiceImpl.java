@@ -64,8 +64,80 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
             user.setProperties(properties);
             user.setTypeDesc(UserType.fromValue(user.getType()).getDescription());
+            
+            // 获取dept和application用户列表
+            loadDeptAndApplicationUsers(user);
         }
         return user;
+    }
+    
+    /**
+     * 加载用户的dept和application用户列表
+     */
+    private void loadDeptAndApplicationUsers(User user) {
+        if (user == null || user.getId() == null) {
+            return;
+        }
+        
+        List<User> deptUsers = new ArrayList<>();
+        List<User> applicationUsers = new ArrayList<>();
+        
+        // 获取该用户的直接上级
+        List<UserGroup> userGroups = getUserGroupService().getByUserId(user.getId());
+        
+        for (UserGroup ug : userGroups) {
+            Long parentId = ug.getParentUserId();
+            if (parentId != null) {
+                User parentUser = this.getById(parentId);
+                if (parentUser != null && parentUser.getType() == 3) {  // type=3 为用户组
+                    // 检查该用户的category属性
+                    List<UserProperties> parentProps = userPropertiesService.getByUserId(parentId, false);
+                    String category = null;
+                    
+                    for (UserProperties prop : parentProps) {
+                        if ("category".equals(prop.getKey()) && prop.getValue() != null) {
+                            category = new String(prop.getValue());
+                            break;
+                        }
+                    }
+                    
+                    // 根据category分类
+                    if ("dept".equals(category)) {
+                        // 这是一个dept用户，继续获取它的上级application用户
+                        deptUsers.add(parentUser);
+                        
+                        // 获取dept的上级application用户
+                        List<UserGroup> deptGroups = getUserGroupService().getByUserId(parentId);
+                        for (UserGroup deptGroup : deptGroups) {
+                            Long appParentId = deptGroup.getParentUserId();
+                            if (appParentId != null) {
+                                User appParent = this.getById(appParentId);
+                                if (appParent != null && appParent.getType() == 3) {
+                                    // 检查是否为application
+                                    List<UserProperties> appProps = userPropertiesService.getByUserId(appParentId, false);
+                                    String appCategory = null;
+                                    for (UserProperties prop : appProps) {
+                                        if ("category".equals(prop.getKey()) && prop.getValue() != null) {
+                                            appCategory = new String(prop.getValue());
+                                            break;
+                                        }
+                                    }
+                                    if ("application".equals(appCategory)) {
+                                        applicationUsers.add(appParent);
+                                    }
+                                }
+                            }
+                        }
+                    } else if ("application".equals(category)) {
+                        // 直接是application用户
+                        applicationUsers.add(parentUser);
+                    }
+                }
+            }
+        }
+        
+        user.setDepts(deptUsers);
+        user.setApplications(applicationUsers);
     }
     
     @Override
@@ -258,8 +330,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public List<PropertyTreeDTO> getTree(Long userId, String category) {
-        // 1. 获取所有category=application的用户ID集合
-        List<Long> applicationUserIds = userPropertiesService.list(new LambdaQueryWrapper<UserProperties>()
+        // 参数验证
+        if (category == null || category.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // 1. 获取所有指定category的用户ID集合
+        List<Long> categoryUserIds = userPropertiesService.list(new LambdaQueryWrapper<UserProperties>()
                 .eq(UserProperties::getKey, "category"))
                 .stream()
                 .filter(prop -> prop.getValue() != null && category.equals(new String(prop.getValue())))
@@ -267,21 +344,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .distinct()
                 .collect(Collectors.toList());
 
-        if (applicationUserIds.isEmpty()) {
+        if (categoryUserIds.isEmpty()) {
             return new ArrayList<>();
         }
 
         // 2. 获取所有user_group中的用户关系
         List<UserGroup> allUserGroups = getUserGroupService().list();
 
-        // 从user_group中的user_id集合（即有父级的用户）
-        Set<Long> usersWithParent = allUserGroups.stream()
+        // 从user_group中的parent_user_id集合（即有父级且父级在category集合中的用户）
+        Set<Long> usersWithParentInCategory = allUserGroups.stream()
+                .filter(ug -> categoryUserIds.contains(ug.getParentUserId()))
                 .map(UserGroup::getUserId)
                 .collect(Collectors.toSet());
 
-        // 3. 找出application用户中真正的根（在user_group中没有parent_user_id的）
-        List<Long> rootUserIds = applicationUserIds.stream()
-                .filter(id -> !usersWithParent.contains(id))
+        // 3. 找出category用户中真正的根（在category集合中没有父级的）
+        List<Long> rootUserIds = categoryUserIds.stream()
+                .filter(id -> !usersWithParentInCategory.contains(id))
                 .collect(Collectors.toList());
 
         // 4. 为每个根用户构建树形结构
@@ -289,7 +367,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Set<Long> processedUsers = new HashSet<>();
 
         for (Long rootUserId : rootUserIds) {
-            PropertyTreeDTO rootNode = buildApplicationTree(rootUserId, applicationUserIds, processedUsers);
+            PropertyTreeDTO rootNode = buildCategoryTree(rootUserId, categoryUserIds, processedUsers);
             if (rootNode != null) {
                 result.add(rootNode);
             }
@@ -299,9 +377,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     /**
-     * 为单个根用户构建应用树（只包含用户节点，不包含属性）
+     * 为单个根用户构建category树（只包含用户节点，不包含属性）
      */
-    private PropertyTreeDTO buildApplicationTree(Long userId, List<Long> applicationUserIds, Set<Long> processedUsers) {
+    private PropertyTreeDTO buildCategoryTree(Long userId, List<Long> categoryUserIds, Set<Long> processedUsers) {
         if (processedUsers.contains(userId)) {
             return null;
         }
@@ -322,8 +400,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 递归添加满足条件的子用户
         for (UserGroup childGroup : childGroups) {
             Long childUserId = childGroup.getUserId();
-            if (applicationUserIds.contains(childUserId)) {
-                PropertyTreeDTO childNode = buildApplicationTree(childUserId, applicationUserIds, processedUsers);
+            if (categoryUserIds.contains(childUserId)) {
+                PropertyTreeDTO childNode = buildCategoryTree(childUserId, categoryUserIds, processedUsers);
                 if (childNode != null) {
                     userNode.getChildren().add(childNode);
                 }

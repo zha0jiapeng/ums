@@ -142,17 +142,19 @@ public class UserController {
     @GetMapping("/getTree")
     @BrotliCompress(quality = 4, threshold = 512)
     public AjaxResult getTree(String category) {
+        // 参数验证
+        if (category == null || category.trim().isEmpty()) {
+            return AjaxResult.error(400, "category参数不能为空");
+        }
+        
         Long userId = LoginUserContextHolder.getUserId();
         Integer userType = LoginUserContextHolder.getUserType();
 
         // 超级管理员(type=2)：获取全部的树状结构
         if (userType != null && userType == 2) {
-            List<PropertyTreeDTO> tree = userService.getTree(userId,category);
-            if (tree != null && !tree.isEmpty()) {
-                return AjaxResult.success(tree);
-            } else {
-                return AjaxResult.errorI18n("user.properties.not.found");
-            }
+            List<PropertyTreeDTO> tree = userService.getTree(userId, category);
+            // 返回成功，即使是空列表也是合法的
+            return AjaxResult.success(tree);
         }
 
         // 普通用户(type=1)：待定

@@ -5,18 +5,20 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.global.ums.entity.User;
 import com.global.ums.entity.UserGroup;
+import com.global.ums.entity.UserProperties;
 import com.global.ums.enums.UserType;
 import com.global.ums.mapper.UserGroupMapper;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.UserGroupService;
+import com.global.ums.service.UserPropertiesService;
 import com.global.ums.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 用户组服务实现类
@@ -26,6 +28,7 @@ public class UserGroupServiceImpl extends ServiceImpl<UserGroupMapper, UserGroup
     
     private final ApplicationContext applicationContext;
     private UserService userService;
+    private UserPropertiesService userPropertiesService;
     
     public UserGroupServiceImpl(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
@@ -39,6 +42,16 @@ public class UserGroupServiceImpl extends ServiceImpl<UserGroupMapper, UserGroup
             userService = applicationContext.getBean(UserService.class);
         }
         return userService;
+    }
+    
+    /**
+     * 懒加载UserPropertiesService，避免循环依赖
+     */
+    private UserPropertiesService getUserPropertiesService() {
+        if (userPropertiesService == null) {
+            userPropertiesService = applicationContext.getBean(UserPropertiesService.class);
+        }
+        return userPropertiesService;
     }
     
     @Override
@@ -155,8 +168,46 @@ public class UserGroupServiceImpl extends ServiceImpl<UserGroupMapper, UserGroup
         int successCount = 0;
         int failCount = 0;
         List<String> failDetails = new ArrayList<>();
+        
+        // 获取要批量添加的用户ID和要添加的父级ID列表
         Long userId = userGroups.get(0).getUserId();
-        remove(new LambdaQueryWrapper<UserGroup>().in(UserGroup::getUserId, userId));
+        Set<Long> newParentIds = userGroups.stream()
+                .map(UserGroup::getParentUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        
+        // 获取这些父级用户的category信息，判断是dept还是application
+        Set<String> categories = new HashSet<>();
+        for (Long parentId : newParentIds) {
+            List<UserProperties> parentProps = getUserPropertiesService().getByUserId(parentId, null);
+            for (UserProperties prop : parentProps) {
+                if ("category".equals(prop.getKey()) && prop.getValue() != null) {
+                    categories.add(new String(prop.getValue()));
+                }
+            }
+        }
+        
+        // 只删除对应category的旧关系
+        if (!categories.isEmpty()) {
+            List<UserGroup> existingGroups = getByUserId(userId);
+            for (UserGroup existingGroup : existingGroups) {
+                Long existingParentId = existingGroup.getParentUserId();
+                if (existingParentId != null) {
+                    List<UserProperties> existingParentProps = getUserPropertiesService().getByUserId(existingParentId, null);
+                    for (UserProperties prop : existingParentProps) {
+                        if ("category".equals(prop.getKey()) && prop.getValue() != null) {
+                            String existingCategory = new String(prop.getValue());
+                            // 如果旧关系的category在新添加的categories中，则删除
+                            if (categories.contains(existingCategory)) {
+                                removeById(existingGroup.getId());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         for (UserGroup userGroup : userGroups) {
             try {
                 // 验证添加条件

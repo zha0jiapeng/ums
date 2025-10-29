@@ -82,7 +82,16 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
         // 如果需要按 hidden 过滤，在查询后过滤
         if (isHidden != null) {
             properties.forEach(this::fillPropertyKeysInfo);
-            properties.removeIf(prop -> !isHidden.equals(prop.getHidden()));
+            properties.removeIf(prop -> {
+                Integer hidden = prop.getHidden();
+                if (isHidden) {
+                    // 只保留hidden=1的
+                    return hidden == null || hidden != 1;
+                } else {
+                    // 只保留hidden=0的
+                    return hidden != null && hidden == 1;
+                }
+            });
         }
 
         return properties;

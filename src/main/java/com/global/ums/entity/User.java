@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.global.ums.constant.UserPropertiesConstant;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.List;
  */
 @Data
 @TableName("ums_user")
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class User {
     
     /**
@@ -49,6 +51,18 @@ public class User {
      */
     @TableField(exist = false)
     private List<UserProperties> properties;
+    
+    /**
+     * dept用户列表（category=dept的上级用户，非数据库字段）
+     */
+    @TableField(exist = false)
+    private List<User> depts;
+    
+    /**
+     * application用户列表（category=application的上级用户，非数据库字段）
+     */
+    @TableField(exist = false)
+    private List<User> applications;
 
     /**
      * 从属性列表中获取用户名

@@ -97,6 +97,19 @@ public class UserGroupController {
     }
 
     /**
+     * 根据用户ID获取用户组
+     */
+    @GetMapping("/byUserId/{userId}")
+    public AjaxResult getByUserId(@PathVariable("userId") Long userId) {
+        List<UserGroup> userGroup = userGroupService.getByUserId(userId);
+        if (userGroup != null) {
+            return AjaxResult.success(userGroup);
+        } else {
+            return AjaxResult.errorI18n("user.group.not.found");
+        }
+    }
+
+    /**
      * 根据上级用户ID获取用户组列表
      */
     @GetMapping("/byParentUserId/{parentUserId}")
@@ -108,8 +121,8 @@ public class UserGroupController {
     /**
      * 分页查询用户组
      */
-    @GetMapping("/list")
-    public AjaxResult list(@RequestParam(defaultValue = "1") Integer pageNum,
+    @GetMapping("/page")
+    public AjaxResult page(@RequestParam(defaultValue = "1") Integer pageNum,
                          @RequestParam(defaultValue = "10") Integer pageSize,
                          @RequestParam(required = false) Long userId,
                          @RequestParam(required = false) Long parentUserId) {
@@ -138,5 +151,15 @@ public class UserGroupController {
         } else {
             return AjaxResult.errorI18n("user.group.add.error.general");
         }
+    }
+    
+    /**
+     * 批量添加用户组关系
+     * @param userGroups 用户组关系列表
+     * @return 添加结果
+     */
+    @PostMapping("/batchAdd")
+    public AjaxResult batchAdd(@RequestBody List<UserGroup> userGroups) {
+        return userGroupService.batchAddUserGroups(userGroups);
     }
 } 

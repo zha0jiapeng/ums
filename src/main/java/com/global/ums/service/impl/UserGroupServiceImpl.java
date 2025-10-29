@@ -7,6 +7,7 @@ import com.global.ums.entity.User;
 import com.global.ums.entity.UserGroup;
 import com.global.ums.enums.UserType;
 import com.global.ums.mapper.UserGroupMapper;
+import com.global.ums.result.AjaxResult;
 import com.global.ums.service.UserGroupService;
 import com.global.ums.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -140,9 +141,53 @@ public class UserGroupServiceImpl extends ServiceImpl<UserGroupMapper, UserGroup
         if (parentUser.getType() == null || parentUser.getType() != UserType.USER_GROUP.getValue()) {
             return false;
         }
+        long count = count(new LambdaQueryWrapper<UserGroup>().eq(UserGroup::getUserId, userId).eq(UserGroup::getParentUserId, parentUserId));
+        return count == 0;
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AjaxResult batchAddUserGroups(List<UserGroup> userGroups) {
+        if (userGroups == null || userGroups.isEmpty()) {
+            return AjaxResult.error(400, "user.group.list.empty");
+        }
         
-        // 验证用户是否已在组中
-        List<UserGroup> existingGroup = getByUserId(userId);
-        return existingGroup.size() == 0;
+        int successCount = 0;
+        int failCount = 0;
+        List<String> failDetails = new ArrayList<>();
+        Long userId = userGroups.get(0).getUserId();
+        remove(new LambdaQueryWrapper<UserGroup>().in(UserGroup::getUserId, userId));
+        for (UserGroup userGroup : userGroups) {
+            try {
+                // 验证添加条件
+                if (!validateUserGroup(userGroup.getUserId(), userGroup.getParentUserId())) {
+                    failCount++;
+                    failDetails.add("userId=" + userGroup.getUserId() + ",parentUserId=" + userGroup.getParentUserId());
+                    continue;
+                }
+                
+                // 保存用户组关系
+                boolean result = this.save(userGroup);
+                if (result) {
+                    successCount++;
+                } else {
+                    failCount++;
+                    failDetails.add("userId=" + userGroup.getUserId() + ",parentUserId=" + userGroup.getParentUserId());
+                }
+            } catch (Exception e) {
+                failCount++;
+                failDetails.add("userId=" + userGroup.getUserId() + ",error=" + e.getMessage());
+                // 发生异常，触发事务回滚
+                throw new RuntimeException("user.group.batch.add.error", e);
+            }
+        }
+        
+        if (failCount == 0) {
+            return AjaxResult.successI18n("user.group.batch.add.success");
+        } else if (successCount == 0) {
+            return AjaxResult.errorI18n("user.group.batch.add.all.failed");
+        } else {
+            return AjaxResult.successI18n("user.group.batch.add.partial.success");
+        }
     }
 } 

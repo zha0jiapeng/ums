@@ -143,33 +143,5 @@ public class UserPropertiesController {
         return AjaxResult.success(list);
     }
     
-    /**
-     * 获取category=application的用户属性树状结构
-     * 返回当前用户及其所有子用户的属性树状结构
-     */
-    @GetMapping("/getApplicationTree")
-    @BrotliCompress(quality = 4, threshold = 512)
-    public AjaxResult getApplicationTree() {
-        Long userId = LoginUserContextHolder.getUserId();
-        Integer userType = LoginUserContextHolder.getUserType();
-        
-        // 超级管理员(type=2)：获取全部的树状结构
-        if (userType != null && userType == 2) {
-            List<PropertyTreeDTO> tree = userPropertiesService.getApplicationPropertiesTree(userId);
-            if (tree != null && !tree.isEmpty()) {
-                return AjaxResult.success(tree);
-            } else {
-                return AjaxResult.errorI18n("user.properties.not.found");
-            }
-        }
-        
-        // 普通用户(type=1)：待定
-        if (userType != null && userType == 1) {
-            // TODO: 普通用户的逻辑待定
-            return AjaxResult.error(403, "功能开发中");
-        }
-        
-        // 其他用户类型：无权限
-        return AjaxResult.error(403, "无权限访问");
-    }
+
 } 

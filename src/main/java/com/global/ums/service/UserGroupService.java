@@ -3,6 +3,7 @@ package com.global.ums.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.global.ums.entity.UserGroup;
+import com.global.ums.result.AjaxResult;
 
 import java.util.List;
 
@@ -62,4 +63,12 @@ public interface UserGroupService extends IService<UserGroup> {
      * @return 是否可以添加
      */
     boolean validateUserGroup(Long userId, Long parentUserId);
+    
+    /**
+     * 批量添加用户组关系
+     *
+     * @param userGroups 用户组关系列表
+     * @return 添加结果
+     */
+    AjaxResult batchAddUserGroups(List<UserGroup> userGroups);
 } 

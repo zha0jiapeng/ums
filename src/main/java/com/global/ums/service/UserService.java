@@ -2,8 +2,11 @@ package com.global.ums.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.global.ums.dto.PropertyTreeDTO;
 import com.global.ums.entity.User;
 import com.global.ums.result.AjaxResult;
+
+import java.util.List;
 
 
 /**
@@ -42,4 +45,12 @@ public interface UserService extends IService<User> {
      * @return 删除结果
      */
     AjaxResult deleteUser(Long id);
+
+    /**
+     * 获取树状结构
+     *
+     * @param userId 用户ID
+     * @return 树状结构列表
+     */
+    List<PropertyTreeDTO> getTree(Long userId, String category);
 } 

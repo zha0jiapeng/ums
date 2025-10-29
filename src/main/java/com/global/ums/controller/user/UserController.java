@@ -1,7 +1,9 @@
 package com.global.ums.controller.user;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.global.ums.annotation.BrotliCompress;
 import com.global.ums.annotation.RequireAuth;
+import com.global.ums.dto.PropertyTreeDTO;
 import com.global.ums.entity.User;
 import com.global.ums.enums.UserType;
 import com.global.ums.result.AjaxResult;
@@ -132,5 +134,34 @@ public class UserController {
         } catch (Exception e) {
             return AjaxResult.error("获取用户类型失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 用户属性树状结构
+     */
+    @GetMapping("/getTree")
+    @BrotliCompress(quality = 4, threshold = 512)
+    public AjaxResult getTree(String category) {
+        Long userId = LoginUserContextHolder.getUserId();
+        Integer userType = LoginUserContextHolder.getUserType();
+
+        // 超级管理员(type=2)：获取全部的树状结构
+        if (userType != null && userType == 2) {
+            List<PropertyTreeDTO> tree = userService.getTree(userId,category);
+            if (tree != null && !tree.isEmpty()) {
+                return AjaxResult.success(tree);
+            } else {
+                return AjaxResult.errorI18n("user.properties.not.found");
+            }
+        }
+
+        // 普通用户(type=1)：待定
+        if (userType != null && userType == 1) {
+            // TODO: 普通用户的逻辑待定
+            return AjaxResult.error(403, "功能开发中");
+        }
+
+        // 其他用户类型：无权限
+        return AjaxResult.error(403, "无权限访问");
     }
 } 

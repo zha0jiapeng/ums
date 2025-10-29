@@ -41,12 +41,4 @@ public interface UserPropertiesService extends IService<UserProperties> {
      * 包括: dataType, hidden, scope, description
      */
     void fillPropertyKeysInfo(UserProperties property);
-    
-    /**
-     * 获取category为application的用户属性树状结构
-     * 
-     * @param userId 用户ID
-     * @return 树状结构列表
-     */
-    List<PropertyTreeDTO> getApplicationPropertiesTree(Long userId);
 } 

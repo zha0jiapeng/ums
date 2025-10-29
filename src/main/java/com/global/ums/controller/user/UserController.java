@@ -44,16 +44,11 @@ public class UserController {
     /**
      * 删除用户
      */
-    @ApiOperation(value = "删除用户", notes = "根据ID删除用户")
+    @ApiOperation(value = "删除用户", notes = "根据ID删除用户，会检查用户组引用并级联删除用户属性")
     @ApiImplicitParam(name = "id", value = "用户ID", required = true, dataTypeClass = Long.class, paramType = "path")
     @DeleteMapping("/delete/{id}")
     public AjaxResult delete(@PathVariable Long id) {
-        boolean result = userService.removeById(id);
-        if (result) {
-            return AjaxResult.successI18n("user.delete.success");
-        } else {
-            return AjaxResult.errorI18n("user.delete.error");
-        }
+        return userService.deleteUser(id);
     }
 
     /**
@@ -88,14 +83,15 @@ public class UserController {
     /**
      * 分页查询用户 - 使用高压缩等级
      */
-    @ApiOperation(value = "分页查询用户", notes = "支持按用户类型、唯一标识、类别、属性类型查询")
+    @ApiOperation(value = "分页查询用户", notes = "支持按用户类型、唯一标识、类别、属性类型、上级用户查询")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "pageNum", value = "页码", defaultValue = "1", dataTypeClass = Integer.class, paramType = "query"),
             @ApiImplicitParam(name = "pageSize", value = "每页数量", defaultValue = "10", dataTypeClass = Integer.class, paramType = "query"),
             @ApiImplicitParam(name = "type", value = "用户类型", dataTypeClass = Integer.class, paramType = "query"),
             @ApiImplicitParam(name = "uniqueId", value = "唯一标识（支持模糊查询）", dataTypeClass = String.class, paramType = "query"),
             @ApiImplicitParam(name = "category", value = "类别（用户属性category）", dataTypeClass = String.class, paramType = "query"),
-            @ApiImplicitParam(name = "propertyType", value = "属性类型（用户属性type）", dataTypeClass = String.class, paramType = "query")
+            @ApiImplicitParam(name = "propertyType", value = "属性类型（用户属性type）", dataTypeClass = String.class, paramType = "query"),
+            @ApiImplicitParam(name = "parentId", value = "上级用户ID", dataTypeClass = Long.class, paramType = "query")
     })
     @GetMapping("/page")
     public AjaxResult page(@RequestParam(defaultValue = "1") Integer pageNum,
@@ -103,9 +99,10 @@ public class UserController {
                         @RequestParam(required = false) Integer type,
                         @RequestParam(required = false) String uniqueId,
                         @RequestParam(required = false) String category,
-                        @RequestParam(required = false) String propertyType) {
+                        @RequestParam(required = false) String propertyType,
+                        @RequestParam(required = false) Long parentId) {
         Page<User> page = new Page<>(pageNum, pageSize);
-        Page<User> userPage = userService.getUserPage(page, type, uniqueId, category, propertyType);
+        Page<User> userPage = userService.getUserPage(page, type, uniqueId, category, propertyType, parentId);
         return AjaxResult.success(userPage);
     }
 

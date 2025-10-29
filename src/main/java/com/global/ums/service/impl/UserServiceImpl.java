@@ -3,12 +3,15 @@ package com.global.ums.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.global.ums.constant.UserPropertiesConstant;
 import com.global.ums.entity.User;
+import com.global.ums.entity.UserGroup;
 import com.global.ums.entity.UserProperties;
 import com.global.ums.enums.UserType;
 import com.global.ums.mapper.UserMapper;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.PasswordService;
+import com.global.ums.service.UserGroupService;
 import com.global.ums.service.UserPropertiesService;
 import com.global.ums.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +32,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Autowired
     private PasswordService passwordService;
+
+    @Autowired
+    private UserGroupService userGroupService;
 
     @Value("${user.default-password:123456}")
     private String defaultPassword;
@@ -55,7 +61,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
     
     @Override
-    public Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, String category, String propertyType) {
+    public Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, String category, String propertyType, Long parentId) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
 
         if (type != null) {
@@ -64,6 +70,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         if (uniqueId != null && !uniqueId.isEmpty()) {
             queryWrapper.like(User::getUniqueId, uniqueId);
+        }
+
+        // 如果指定了 parentId，根据 user_group 表过滤子用户
+        if (parentId != null) {
+            List<UserGroup> childGroups = userGroupService.getByParentUserId(parentId);
+            if (childGroups == null || childGroups.isEmpty()) {
+                // 如果该上级用户没有子用户，直接返回空结果
+                return new Page<>(page.getCurrent(), page.getSize());
+            }
+            List<Long> childUserIds = childGroups.stream()
+                    .map(UserGroup::getUserId)
+                    .distinct()
+                    .collect(java.util.stream.Collectors.toList());
+            queryWrapper.in(User::getId, childUserIds);
         }
 
         // 如果指定了 category 或 propertyType，需要根据用户属性过滤
@@ -180,12 +200,51 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     passwordService.setPassword(user.getId(), user.getPassword());
                 }
             }else if(user.getType()==3){
-                user.getProperties().forEach(prop -> {prop.setUserId(user.getId());});
+                user.getProperties().forEach(prop -> {
+                    prop.setUserId(user.getId());
+                });
                 userPropertiesService.saveBatch(user.getProperties());
+                if(user.getParentId()!=null){
+                    userGroupService.addUserGroup(user.getId(), user.getParentId());
+                }
             }
             return AjaxResult.successI18n("user.add.success");
         }else {
             return AjaxResult.errorI18n("user.add.error");
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AjaxResult deleteUser(Long id) {
+        // 1. 检查用户是否存在
+        User user = this.getById(id);
+        if (user == null) {
+            return AjaxResult.errorI18n("user.not.found");
+        }
+
+        // 2. 检查用户是否在 user_group 表中被引用为上级用户
+        List<UserGroup> childGroups = userGroupService.getByParentUserId(id);
+        if (childGroups != null && !childGroups.isEmpty()) {
+            return AjaxResult.errorI18n("user.delete.has.children");
+        }
+
+        // 3. 删除用户属性
+        LambdaQueryWrapper<UserProperties> propertiesWrapper = new LambdaQueryWrapper<>();
+        propertiesWrapper.eq(UserProperties::getUserId, id);
+        userPropertiesService.remove(propertiesWrapper);
+
+        // 4. 删除用户在 user_group 表中的记录（作为子用户）
+        LambdaQueryWrapper<UserGroup> groupWrapper = new LambdaQueryWrapper<>();
+        groupWrapper.eq(UserGroup::getUserId, id);
+        userGroupService.remove(groupWrapper);
+
+        // 5. 删除用户
+        boolean result = this.removeById(id);
+        if (result) {
+            return AjaxResult.successI18n("user.delete.success");
+        } else {
+            return AjaxResult.errorI18n("user.delete.error");
         }
     }
 } 

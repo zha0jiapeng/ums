@@ -36,6 +36,9 @@ public class User {
     @TableField(exist = false)
    private String password;
 
+    @TableField(exist = false)
+    private Long parentId;
+
     /**
      * 值
      */

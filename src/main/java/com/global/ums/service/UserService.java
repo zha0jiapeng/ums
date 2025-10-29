@@ -28,9 +28,18 @@ public interface UserService extends IService<User> {
      * @param uniqueId 唯一标识
      * @param category 类别（用户属性）
      * @param propertyType 属性类型（用户属性）
+     * @param parentId 上级用户ID
      * @return 分页用户视图对象
      */
-    Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, String category, String propertyType);
+    Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, String category, String propertyType, Long parentId);
 
     AjaxResult addUser(User user);
+
+    /**
+     * 删除用户（包含引用检查和属性级联删除）
+     *
+     * @param id 用户ID
+     * @return 删除结果
+     */
+    AjaxResult deleteUser(Long id);
 } 

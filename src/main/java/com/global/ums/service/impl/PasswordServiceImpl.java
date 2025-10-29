@@ -51,6 +51,21 @@ public class PasswordServiceImpl implements PasswordService {
 
 
     /**
+     * 设置用户密码
+     */
+    @Override
+    public byte[] getPassword(String password) {
+        // 生成随机盐
+        String salt = PasswordUtils.generateSalt();
+
+        // 加密密码
+        String encryptedPassword = PasswordUtils.encryptPassword(password, salt);
+
+        return PasswordUtils.toBytes(encryptedPassword, salt);
+    }
+
+
+    /**
      * 验证用户密码
      */
     @Override

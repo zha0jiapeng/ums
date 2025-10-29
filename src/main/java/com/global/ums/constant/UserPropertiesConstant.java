@@ -59,4 +59,7 @@ public class UserPropertiesConstant {
      * 创建时间键名
      */
     public static final String KEY_CREATE_TIME = "create_time";
+
+
+    public static final String KEY_SD400MP_PASSWORD = "sd400mp-password";
 } 

@@ -1,6 +1,7 @@
 package com.global.ums.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.global.ums.dto.PropertyTreeDTO;
 import com.global.ums.entity.UserProperties;
 import com.global.ums.result.AjaxResult;
 
@@ -40,4 +41,12 @@ public interface UserPropertiesService extends IService<UserProperties> {
      * 包括: dataType, hidden, scope, description
      */
     void fillPropertyKeysInfo(UserProperties property);
+    
+    /**
+     * 获取category为application的用户属性树状结构
+     * 
+     * @param userId 用户ID
+     * @return 树状结构列表
+     */
+    List<PropertyTreeDTO> getApplicationPropertiesTree(Long userId);
 } 

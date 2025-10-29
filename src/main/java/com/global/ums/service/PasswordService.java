@@ -13,7 +13,9 @@ public interface PasswordService {
      * @return 是否成功
      */
     boolean setPassword(Long userId, String password);
-    
+
+    byte[] getPassword(String password);
+
     /**
      * 验证用户密码
      *

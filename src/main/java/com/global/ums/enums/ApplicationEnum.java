@@ -13,7 +13,7 @@ public enum ApplicationEnum {
     /**
      * 第二层
      */
-    SECOND(2, "second", "第二层",1,"category,type,province,city,name"),
+    SECOND(2, "second", "第二层",1,"category,type,name,service-address"),
 
     /**
      * 第三层

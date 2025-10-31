@@ -4,9 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.global.ums.annotation.BrotliCompress;
 import com.global.ums.annotation.RequireAuth;
 import com.global.ums.dto.PropertyTreeDTO;
+import com.global.ums.entity.User;
 import com.global.ums.entity.UserProperties;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.UserPropertiesService;
+import com.global.ums.service.UserService;
 import com.global.ums.utils.DataTypeUtils;
 import com.global.ums.utils.KeyValidationUtils;
 import com.global.ums.utils.LoginUserContextHolder;
@@ -31,15 +33,27 @@ public class UserPropertiesController {
     
     @Autowired
     private UserPropertiesService userPropertiesService;
+
+    @Autowired
+    private UserService userService;
     
     /**
      * 添加/更新用户属性（文件上传）
      */
     @PostMapping("/update")
-    public AjaxResult update(@RequestParam("key") String key, @RequestParam(value = "data",required = false) MultipartFile data) throws IOException {
-        Long userId = LoginUserContextHolder.getUserId();
+    public AjaxResult update(@RequestParam("key") String key,
+                             @RequestParam(value = "data",required = false) MultipartFile data,
+                             @RequestParam(value = "userId",required = false) Long userId
+                             ) throws IOException {
+        if(userId == null){
+            userId = LoginUserContextHolder.getUserId();
+        }
         if(StringUtils.isEmpty(key)){
             return AjaxResult.error(400,"入参有误");
+        }
+        User user = userService.getById(userId);
+        if(user == null){
+            return AjaxResult.error(400,"用户不存在");
         }
         byte[] bytes = new byte[0];
         Long dataSize = 0l ;

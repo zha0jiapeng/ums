@@ -1,5 +1,6 @@
 package com.global.ums.controller.user;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.global.ums.annotation.RequireAuth;
 import com.global.ums.entity.UserGroup;
@@ -49,6 +50,21 @@ public class UserGroupController {
     @DeleteMapping("/delete/{id}")
     public AjaxResult delete(@PathVariable Long id) {
         boolean result = userGroupService.removeById(id);
+        if (result) {
+            return AjaxResult.successI18n("user.group.delete.success");
+        } else {
+            return AjaxResult.errorI18n("user.group.delete.error");
+        }
+    }
+
+    /**
+     * 删除用户组关系
+     */
+    @DeleteMapping("/delete")
+    public AjaxResult delete(@RequestBody UserGroup userGroup) {
+        Long userId = userGroup.getUserId();
+        Long parentUserId = userGroup.getParentUserId();
+        boolean result = userGroupService.remove(new LambdaQueryWrapper<UserGroup>().eq(UserGroup::getUserId, userId).eq(UserGroup::getParentUserId, parentUserId));
         if (result) {
             return AjaxResult.successI18n("user.group.delete.success");
         } else {

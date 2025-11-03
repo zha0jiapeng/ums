@@ -7,9 +7,14 @@ import com.global.ums.dto.PhoneNumberDTO;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.IMiniappService;
 import com.global.ums.utils.IpUtils;
+import com.global.ums.utils.LoginUserContextHolder;
 import com.global.ums.utils.ServletUtils;
 import com.global.ums.utils.StringUtils;
 
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -122,6 +127,26 @@ public class MiniappController{
         
         // 调用服务层方法
         return miniappService.getPhoneNumber(code, encryptedData, iv, sceneId);
+    }
+
+
+    /**
+     * 通过分享邀请用户
+     */
+    @ApiOperation(value = "通过分享邀请用户", notes = "通过分享邀请用户")
+    @ApiResponses({
+            @ApiResponse(code = 200, message = "获取成功"),
+            @ApiResponse(code = 500, message = "获取失败")
+    })
+    @PostMapping("/invite/{openId}")
+    public AjaxResult invite( @ApiParam(value = "邀请人用户ID", required = true, example = "qr_123456", name = "openId")
+                              @PathVariable("openId") String openId) {
+        Long userId = LoginUserContextHolder.getUserId();
+        if(userId==null){
+            return AjaxResult.error("未登录或者token过期，请重新登录");
+        }
+        // 调用服务层处理邀请逻辑
+        return miniappService.processInvitation(openId, userId);
     }
 
 } 

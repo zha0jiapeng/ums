@@ -20,7 +20,7 @@ public class UserPropertiesConstant {
      */
     public static final String KEY_NICKNAME = "nickname";
     
-    /**
+/**
      * 头像键名
      */
     public static final String KEY_AVATAR = "avatar";
@@ -54,11 +54,16 @@ public class UserPropertiesConstant {
      * UnionID键名
      */
     public static final String KEY_UNIONID = "unionid";
-    
+
     /**
      * 创建时间键名
      */
     public static final String KEY_CREATE_TIME = "create_time";
+
+    /**
+     * 部门管理员键名
+     */
+    public static final String KEY_DEPARTMENT_ADMIN = "department-admin";
 
 
     public static final String KEY_SD400MP_PASSWORD = "sd400mp-password";

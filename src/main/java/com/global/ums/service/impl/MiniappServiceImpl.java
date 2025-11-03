@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.global.ums.dto.TokenDTO;
 import com.global.ums.entity.QrcodeInfo;
 import com.global.ums.entity.User;
+import com.global.ums.entity.UserGroup;
 import com.global.ums.entity.UserProperties;
 import com.global.ums.enums.QrcodeScanStatus;
 import com.global.ums.enums.UserType;
@@ -50,6 +51,9 @@ public class MiniappServiceImpl implements IMiniappService {
 
     @Autowired
     private UserPropertiesService userPropertiesService;
+
+    @Autowired
+    private UserGroupService userGroupService;
 
     @Value("${user.default-password:123456}")
     private String defaultPassword;
@@ -451,6 +455,72 @@ public class MiniappServiceImpl implements IMiniappService {
         } catch (Exception e) {
             log.error("处理扫码事件失败", e);
             return AjaxResult.errorI18n("miniapp.qrcode.scan.error");
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AjaxResult processInvitation(String openId, Long userId) {
+        // 1. 验证参数
+        if (openId == null || openId.trim().isEmpty()) {
+            return AjaxResult.errorI18n("miniapp.invitation.openid.empty");
+        }
+
+        // 2. 验证被邀请用户是否存在
+        User invitedUser = userService.getById(userId);
+        if (invitedUser == null) {
+            return AjaxResult.errorI18n("miniapp.user.not.found");
+        }
+
+        // 3. 根据 openId (ma_openid) 找到邀请人
+        UserProperties inviterProperty = userPropertiesService.getKeyisExist(
+            UserPropertiesConstant.KEY_MA_OPENID,
+            openId.getBytes(StandardCharsets.UTF_8)
+        );
+
+        if (inviterProperty == null || inviterProperty.getUserId() == null) {
+            return AjaxResult.errorI18n("miniapp.invitation.inviter.not.found");
+        }
+
+        Long inviterId = inviterProperty.getUserId();
+
+        // 4. 验证邀请人不能是自己
+        if (inviterId.equals(userId)) {
+            return AjaxResult.errorI18n("miniapp.invitation.cannot.invite.self");
+        }
+
+        // 5. 验证邀请人是否存在
+        User inviter = userService.getById(inviterId);
+        if (inviter == null) {
+            return AjaxResult.errorI18n("miniapp.invitation.inviter.not.found");
+        }
+
+        // 6. 获取邀请人的 department-admin 属性
+        UserProperties departmentProperty = userPropertiesService.getByUserIdAndKey(
+            inviterId,
+            UserPropertiesConstant.KEY_DEPARTMENT_ADMIN
+        );
+
+        if (departmentProperty == null || departmentProperty.getValue() == null) {
+            return AjaxResult.errorI18n("miniapp.invitation.inviter.no.department");
+        }
+
+        // 7. 检查被邀请用户是否已经在该邀请人的用户组中
+        List<UserGroup> existingGroups = userGroupService.getByUserId(userId);
+        boolean alreadyInGroup = existingGroups.stream()
+            .anyMatch(group -> inviterId.equals(group.getParentUserId()));
+
+        if (alreadyInGroup) {
+            return AjaxResult.errorI18n("miniapp.invitation.already.in.group");
+        }
+
+        // 8. 添加用户组关系
+        boolean success = userGroupService.addUserGroup(userId, inviterId);
+
+        if (success) {
+            return AjaxResult.successI18n("miniapp.invitation.success");
+        } else {
+            return AjaxResult.errorI18n("miniapp.invitation.failed");
         }
     }
 

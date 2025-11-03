@@ -96,4 +96,6 @@ public interface IMiniappService {
      * @return 处理结果
      */
     AjaxResult cancelQrcode(String sceneId);
-} 
+
+    AjaxResult processInvitation(String openId, Long userId);
+}

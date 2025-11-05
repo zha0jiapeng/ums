@@ -460,14 +460,14 @@ public class MiniappServiceImpl implements IMiniappService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public AjaxResult processInvitation(String openId, Long userId) {
+    public AjaxResult processInvitation(String openId, User user) {
         // 1. 验证参数
         if (openId == null || openId.trim().isEmpty()) {
             return AjaxResult.errorI18n("miniapp.invitation.openid.empty");
         }
 
         // 2. 验证被邀请用户是否存在
-        User invitedUser = userService.getById(userId);
+        User invitedUser = user;
         if (invitedUser == null) {
             return AjaxResult.errorI18n("miniapp.user.not.found");
         }
@@ -485,7 +485,7 @@ public class MiniappServiceImpl implements IMiniappService {
         Long inviterId = inviterProperty.getUserId();
 
         // 4. 验证邀请人不能是自己
-        if (inviterId.equals(userId)) {
+        if (inviterId.equals(invitedUser.getId())) {
             return AjaxResult.errorI18n("miniapp.invitation.cannot.invite.self");
         }
 
@@ -505,23 +505,48 @@ public class MiniappServiceImpl implements IMiniappService {
             return AjaxResult.errorI18n("miniapp.invitation.inviter.no.department");
         }
 
-        // 7. 检查被邀请用户是否已经在该邀请人的用户组中
-        List<UserGroup> existingGroups = userGroupService.getByUserId(userId);
+        // 7. 解析 department-admin 的 value 作为 parentUserId
+        Long parentUserId;
+        try {
+            String departmentValue = new String(departmentProperty.getValue(), StandardCharsets.UTF_8);
+            parentUserId = Long.parseLong(departmentValue);
+        } catch (Exception e) {
+            log.error("解析邀请人的 department-admin 属性失败", e);
+            return AjaxResult.errorI18n("miniapp.invitation.inviter.department.invalid");
+        }
+
+        // 8. 检查被邀请用户是否已经在该部门的用户组中
+        List<UserGroup> existingGroups = userGroupService.getByUserId(invitedUser.getId());
         boolean alreadyInGroup = existingGroups.stream()
-            .anyMatch(group -> inviterId.equals(group.getParentUserId()));
+            .anyMatch(group -> parentUserId.equals(group.getParentUserId()));
 
         if (alreadyInGroup) {
             return AjaxResult.errorI18n("miniapp.invitation.already.in.group");
         }
 
-        // 8. 添加用户组关系
-        boolean success = userGroupService.addUserGroup(userId, inviterId);
+        // 9. 添加用户组关系（parentUserId 是邀请人的 department-admin 的 value）
+        boolean success = userGroupService.addUserGroup(invitedUser.getId(), parentUserId);
 
-        if (success) {
-            return AjaxResult.successI18n("miniapp.invitation.success");
-        } else {
+        if (!success) {
             return AjaxResult.errorI18n("miniapp.invitation.failed");
         }
+
+        // 10. 在被邀请人的属性中记录邀请人的 userId
+        UserProperties invitedByProperty = new UserProperties();
+        invitedByProperty.setUserId(invitedUser.getId());
+        invitedByProperty.setKey(UserPropertiesConstant.KEY_INVITED_BY);
+        byte[] inviterIdBytes = inviterId.toString().getBytes(StandardCharsets.UTF_8);
+        invitedByProperty.setValue(inviterIdBytes);
+        invitedByProperty.setDataType(DataTypeUtils.inferDataType(inviterIdBytes).getValue());
+        
+        try {
+            userPropertiesService.save(invitedByProperty);
+        } catch (Exception e) {
+            log.error("保存邀请人记录失败", e);
+            // 这里不影响主流程，记录日志即可
+        }
+
+        return AjaxResult.successI18n("miniapp.invitation.success");
     }
 
     /**

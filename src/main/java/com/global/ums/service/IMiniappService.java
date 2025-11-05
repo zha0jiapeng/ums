@@ -1,6 +1,7 @@
 package com.global.ums.service;
 
 import com.global.ums.entity.QrcodeInfo;
+import com.global.ums.entity.User;
 import com.global.ums.result.AjaxResult;
 
 /**
@@ -97,5 +98,5 @@ public interface IMiniappService {
      */
     AjaxResult cancelQrcode(String sceneId);
 
-    AjaxResult processInvitation(String openId, Long userId);
+    AjaxResult processInvitation(String openId, User user);
 }

@@ -4,7 +4,9 @@ package com.global.ums.controller.wechat;
 import cn.hutool.core.util.StrUtil;
 import com.global.ums.dto.ConfirmLoginDTO;
 import com.global.ums.dto.PhoneNumberDTO;
+import com.global.ums.entity.User;
 import com.global.ums.result.AjaxResult;
+import com.global.ums.service.AuthService;
 import com.global.ums.service.IMiniappService;
 import com.global.ums.utils.IpUtils;
 import com.global.ums.utils.LoginUserContextHolder;
@@ -29,6 +31,9 @@ public class MiniappController{
 
     @Autowired
     private IMiniappService miniappService;
+
+    @Autowired
+    private AuthService authService;
     /**
      * 生成小程序扫码登录二维码
      */
@@ -139,14 +144,15 @@ public class MiniappController{
             @ApiResponse(code = 500, message = "获取失败")
     })
     @PostMapping("/invite/{openId}")
-    public AjaxResult invite( @ApiParam(value = "邀请人用户ID", required = true, example = "qr_123456", name = "openId")
+    public AjaxResult invite( @RequestHeader(value = "${jwt.token-header:Authorization}", required = true) String token,
+                              @ApiParam(value = "邀请人用户ID", required = true, example = "qr_123456", name = "openId")
                               @PathVariable("openId") String openId) {
-        Long userId = LoginUserContextHolder.getUserId();
-        if(userId==null){
+        User user = authService.getUserByToken(token);
+        if(user==null){
             return AjaxResult.error("未登录或者token过期，请重新登录");
         }
         // 调用服务层处理邀请逻辑
-        return miniappService.processInvitation(openId, userId);
+        return miniappService.processInvitation(openId, user);
     }
 
 } 

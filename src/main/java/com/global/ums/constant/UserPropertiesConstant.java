@@ -65,6 +65,10 @@ public class UserPropertiesConstant {
      */
     public static final String KEY_DEPARTMENT_ADMIN = "department-admin";
 
+    /**
+     * 邀请人键名 - 记录该用户是被谁邀请的
+     */
+    public static final String KEY_INVITED_BY = "invited-by";
 
     public static final String KEY_SD400MP_PASSWORD = "sd400mp-password";
 } 

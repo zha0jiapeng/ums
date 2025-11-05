@@ -5,6 +5,8 @@ import cn.binarywang.wx.miniapp.bean.WxMaCodeLineColor;
 import cn.binarywang.wx.miniapp.bean.WxMaJscode2SessionResult;
 import cn.binarywang.wx.miniapp.bean.WxMaPhoneNumberInfo;
 import cn.hutool.core.date.DateUtil;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.global.ums.dto.TokenDTO;
 import com.global.ums.entity.QrcodeInfo;
@@ -531,18 +533,49 @@ public class MiniappServiceImpl implements IMiniappService {
             return AjaxResult.errorI18n("miniapp.invitation.failed");
         }
 
-        // 10. 在被邀请人的属性中记录邀请人的 userId
-        UserProperties invitedByProperty = new UserProperties();
-        invitedByProperty.setUserId(invitedUser.getId());
-        invitedByProperty.setKey(UserPropertiesConstant.KEY_INVITED_BY);
-        byte[] inviterIdBytes = inviterId.toString().getBytes(StandardCharsets.UTF_8);
-        invitedByProperty.setValue(inviterIdBytes);
-        invitedByProperty.setDataType(DataTypeUtils.inferDataType(inviterIdBytes).getValue());
-        
+        // 10. 在被邀请人的属性中记录该部门的邀请人
+        // 使用 JSON 格式存储: {"部门ID": "邀请人ID", ...}
         try {
-            userPropertiesService.save(invitedByProperty);
+            UserProperties existingProperty = userPropertiesService.getByUserIdAndKey(
+                invitedUser.getId(),
+                UserPropertiesConstant.KEY_INVITED_BY
+            );
+            
+            JSONObject invitedByJson = new JSONObject();
+            
+            // 如果已有记录，先解析现有数据
+            if (existingProperty != null && existingProperty.getValue() != null) {
+                try {
+                    String existingJsonStr = new String(existingProperty.getValue(), StandardCharsets.UTF_8);
+                    invitedByJson = JSON.parseObject(existingJsonStr);
+                    if (invitedByJson == null) {
+                        invitedByJson = new JSONObject();
+                    }
+                } catch (Exception e) {
+                    log.warn("解析已有邀请人记录失败，将创建新记录", e);
+                    invitedByJson = new JSONObject();
+                }
+            }
+            
+            // 添加或更新当前部门的邀请人
+            invitedByJson.put(parentUserId.toString(), inviterId.toString());
+            
+            // 转换为 JSON 并保存
+            String jsonValue = invitedByJson.toJSONString();
+            byte[] jsonBytes = jsonValue.getBytes(StandardCharsets.UTF_8);
+            
+            UserProperties invitedByProperty = existingProperty != null ? existingProperty : new UserProperties();
+            invitedByProperty.setUserId(invitedUser.getId());
+            invitedByProperty.setKey(UserPropertiesConstant.KEY_INVITED_BY);
+            invitedByProperty.setValue(jsonBytes);
+            invitedByProperty.setDataType(DataTypeUtils.inferDataType(jsonBytes).getValue());
+            
+            userPropertiesService.saveOrUpdate(invitedByProperty);
+            
+            log.info("成功记录邀请关系 - 被邀请人: {}, 部门: {}, 邀请人: {}", invitedUser.getId(), parentUserId, inviterId);
+            
         } catch (Exception e) {
-            log.error("保存邀请人记录失败", e);
+            log.error("保存邀请人记录失败，部门ID: {}, 邀请人ID: {}", parentUserId, inviterId, e);
             // 这里不影响主流程，记录日志即可
         }
 

@@ -4,9 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.global.ums.annotation.RequireAuth;
 import com.global.ums.entity.UmsPropertyKeys;
-import com.global.ums.enums.ApplicationEnum;
 import com.global.ums.enums.DataType;
-import com.global.ums.enums.RoleEnum;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.UmsPropertyKeysService;
 import com.global.ums.utils.KeyValidationUtils;
@@ -299,56 +297,6 @@ public class UmsPropertyKeysController {
             return AjaxResult.success(dataTypes);
         } catch (Exception e) {
             return AjaxResult.error("获取数据类型失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 获取所有角色枚举
-     */
-    @ApiOperation(value = "获取角色枚举", notes = "获取所有可用的角色枚举值，包含层级和初始化键信息")
-    @GetMapping("/roles")
-    public AjaxResult getRoles() {
-        try {
-            List<Map<String, Object>> roles = new ArrayList<>();
-
-            for (RoleEnum roleEnum : RoleEnum.values()) {
-                Map<String, Object> item = new HashMap<>();
-                item.put("value", roleEnum.getValue());
-                item.put("code", roleEnum.getCode());
-                item.put("description", roleEnum.getDescription());
-                item.put("parent", roleEnum.getParent());
-                item.put("initKeys", roleEnum.getInitKeys());
-                roles.add(item);
-            }
-
-            return AjaxResult.success(roles);
-        } catch (Exception e) {
-            return AjaxResult.error("获取角色枚举失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 获取所有应用枚举
-     */
-    @ApiOperation(value = "获取应用枚举", notes = "获取所有可用的应用枚举值，包含层级和初始化键信息")
-    @GetMapping("/applications")
-    public AjaxResult getApplications() {
-        try {
-            List<Map<String, Object>> applications = new ArrayList<>();
-
-            for (ApplicationEnum appEnum : ApplicationEnum.values()) {
-                Map<String, Object> item = new HashMap<>();
-                item.put("value", appEnum.getValue());
-                item.put("code", appEnum.getCode());
-                item.put("description", appEnum.getDescription());
-                item.put("parent", appEnum.getParent());
-                item.put("initKeys", appEnum.getInitKeys());
-                applications.add(item);
-            }
-
-            return AjaxResult.success(applications);
-        } catch (Exception e) {
-            return AjaxResult.error("获取应用枚举失败: " + e.getMessage());
         }
     }
 }

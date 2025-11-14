@@ -91,8 +91,6 @@ public class UserController {
             @ApiImplicitParam(name = "pageSize", value = "每页数量", defaultValue = "10", dataTypeClass = Integer.class, paramType = "query"),
             @ApiImplicitParam(name = "type", value = "用户类型", dataTypeClass = Integer.class, paramType = "query"),
             @ApiImplicitParam(name = "uniqueId", value = "唯一标识（支持模糊查询）", dataTypeClass = String.class, paramType = "query"),
-            @ApiImplicitParam(name = "category", value = "类别（用户属性category）", dataTypeClass = String.class, paramType = "query"),
-            @ApiImplicitParam(name = "propertyType", value = "属性类型（用户属性type）", dataTypeClass = String.class, paramType = "query"),
             @ApiImplicitParam(name = "parentId", value = "上级用户ID", dataTypeClass = Long.class, paramType = "query")
     })
     @GetMapping("/page")
@@ -100,11 +98,9 @@ public class UserController {
                         @RequestParam(defaultValue = "10") Integer pageSize,
                         @RequestParam(required = false) Integer type,
                         @RequestParam(required = false) String uniqueId,
-                        @RequestParam(required = false) String category,
-                        @RequestParam(required = false) String propertyType,
                         @RequestParam(required = false) Long parentId) {
         Page<User> page = new Page<>(pageNum, pageSize);
-        Page<User> userPage = userService.getUserPage(page, type, uniqueId, category, propertyType, parentId);
+        Page<User> userPage = userService.getUserPage(page, type, uniqueId, parentId);
         return AjaxResult.success(userPage);
     }
 

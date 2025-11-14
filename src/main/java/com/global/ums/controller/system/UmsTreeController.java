@@ -11,6 +11,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +20,7 @@ import java.util.List;
 /**
  * ums_tree CRUD 控制器
  */
+@Slf4j
 @Api(value = "组织应用树管理", tags = "组织应用树管理")
 @RestController
 @RequestMapping("/system/tree")
@@ -67,7 +69,7 @@ public class UmsTreeController {
         return AjaxResult.success(node);
     }
 
-    @ApiOperation("新增节点")
+    @ApiOperation(value = "新增节点", notes = "支持字段：name(名称)、description(描述)、type(类型:1=应用 2=部门)、parentId(父节点ID)、formJson(动态表单JSON)")
     @PostMapping
     public AjaxResult create(@RequestBody UmsTree tree) {
         try {
@@ -75,13 +77,15 @@ public class UmsTreeController {
             String msg = SpringUtils.getBean(MessageUtils.class).getMessage("tree.node.create.success");
             return AjaxResult.success(msg, tree);
         } catch (IllegalArgumentException ex) {
+            log.error("创建节点参数校验失败: {}", ex.getMessage(), ex);
             return AjaxResult.errorI18n(ex.getMessage());
         } catch (Exception ex) {
+            log.error("创建节点失败", ex);
             return AjaxResult.errorI18n("tree.node.create.error");
         }
     }
 
-    @ApiOperation("更新节点")
+    @ApiOperation(value = "更新节点", notes = "支持字段：id(必填)、name(名称)、description(描述)、type(类型:1=应用 2=部门)、parentId(父节点ID)、formJson(动态表单JSON)")
     @PutMapping
     public AjaxResult update(@RequestBody UmsTree tree) {
         try {
@@ -89,8 +93,10 @@ public class UmsTreeController {
             String msg = SpringUtils.getBean(MessageUtils.class).getMessage("tree.node.update.success");
             return AjaxResult.success(msg, tree);
         } catch (IllegalArgumentException ex) {
+            log.error("更新节点参数校验失败: {}", ex.getMessage(), ex);
             return AjaxResult.errorI18n(ex.getMessage());
         } catch (Exception ex) {
+            log.error("更新节点失败", ex);
             return AjaxResult.errorI18n("tree.node.update.error");
         }
     }
@@ -103,8 +109,10 @@ public class UmsTreeController {
             treeService.removeNode(id, cascade);
             return AjaxResult.successI18n("tree.node.delete.success");
         } catch (IllegalArgumentException | IllegalStateException ex) {
+            log.error("删除节点参数校验失败: {}", ex.getMessage(), ex);
             return AjaxResult.errorI18n(ex.getMessage());
         } catch (Exception ex) {
+            log.error("删除节点失败", ex);
             return AjaxResult.errorI18n("tree.node.delete.error");
         }
     }

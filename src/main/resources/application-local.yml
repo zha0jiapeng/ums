@@ -43,7 +43,7 @@ spring:
           config:
             multi-statement-allow: true
   redis:
-    host: 192.168.110.10
+    host: 127.0.0.1
     port: 36379
     database: 0
     password:

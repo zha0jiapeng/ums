@@ -42,6 +42,11 @@ public class UmsTree {
     private Integer type;
 
     /**
+     * 动态表单 JSON
+     */
+    private String formJson;
+
+    /**
      * 子节点集合（仅出参使用）
      */
     @TableField(exist = false)

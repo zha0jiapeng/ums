@@ -141,7 +141,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
     
     @Override
-    public Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, String category, String propertyType, Long parentId) {
+    public Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, Long parentId) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
 
         if (type != null) {
@@ -164,83 +164,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     .distinct()
                     .collect(java.util.stream.Collectors.toList());
             queryWrapper.in(User::getId, childUserIds);
-        }
-
-        // 如果指定了 category 或 propertyType，需要根据用户属性过滤
-        if ((category != null && !category.isEmpty()) || (propertyType != null && !propertyType.isEmpty())) {
-            LambdaQueryWrapper<UserProperties> propWrapper = new LambdaQueryWrapper<>();
-
-            // 查询 key='category' 且 value=指定值 的记录
-            if (category != null && !category.isEmpty()) {
-                propWrapper.eq(UserProperties::getKey, "category")
-                           .eq(UserProperties::getValue, category.getBytes());
-            }
-
-            // 查询 key='type' 且 value=指定值 的记录
-            if (propertyType != null && !propertyType.isEmpty()) {
-                if (category != null && !category.isEmpty()) {
-                    // 如果同时指定了 category 和 type，需要找同时满足两个条件的用户
-                    // 先获取满足 category 的用户 ID 列表
-                    List<Long> categoryUserIds = userPropertiesService.list(propWrapper)
-                            .stream()
-                            .map(UserProperties::getUserId)
-                            .distinct()
-                            .collect(java.util.stream.Collectors.toList());
-
-                    if (categoryUserIds.isEmpty()) {
-                        // 如果没有满足 category 的用户，直接返回空结果
-                        return new Page<>(page.getCurrent(), page.getSize());
-                    }
-
-                    // 在满足 category 的用户中，再查询满足 type 的用户
-                    LambdaQueryWrapper<UserProperties> typeWrapper = new LambdaQueryWrapper<>();
-                    typeWrapper.eq(UserProperties::getKey, "type")
-                               .eq(UserProperties::getValue, propertyType.getBytes())
-                               .in(UserProperties::getUserId, categoryUserIds);
-
-                    List<Long> typeUserIds = userPropertiesService.list(typeWrapper)
-                            .stream()
-                            .map(UserProperties::getUserId)
-                            .distinct()
-                            .collect(java.util.stream.Collectors.toList());
-
-                    if (typeUserIds.isEmpty()) {
-                        return new Page<>(page.getCurrent(), page.getSize());
-                    }
-
-                    queryWrapper.in(User::getId, typeUserIds);
-                } else {
-                    // 只指定了 type
-                    LambdaQueryWrapper<UserProperties> typeWrapper = new LambdaQueryWrapper<>();
-                    typeWrapper.eq(UserProperties::getKey, "type")
-                               .eq(UserProperties::getValue, propertyType.getBytes());
-
-                    List<Long> userIds = userPropertiesService.list(typeWrapper)
-                            .stream()
-                            .map(UserProperties::getUserId)
-                            .distinct()
-                            .collect(java.util.stream.Collectors.toList());
-
-                    if (userIds.isEmpty()) {
-                        return new Page<>(page.getCurrent(), page.getSize());
-                    }
-
-                    queryWrapper.in(User::getId, userIds);
-                }
-            } else {
-                // 只指定了 category
-                List<Long> userIds = userPropertiesService.list(propWrapper)
-                        .stream()
-                        .map(UserProperties::getUserId)
-                        .distinct()
-                        .collect(java.util.stream.Collectors.toList());
-
-                if (userIds.isEmpty()) {
-                    return new Page<>(page.getCurrent(), page.getSize());
-                }
-
-                queryWrapper.in(User::getId, userIds);
-            }
         }
 
         Page<User> userPage = this.page(page, queryWrapper);

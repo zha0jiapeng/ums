@@ -19,7 +19,9 @@ public enum UserType {
     /**
      * 用户组
      */
-    USER_GROUP(3, "user_group", "用户组"),
+    APPLICATION(3, "application", "应用"),
+
+    DEPT(4, "dept", "部门"),
 
 
 
@@ -92,35 +94,6 @@ public enum UserType {
             }
         }
         return UNKNOWN;
-    }
-
-    /**
-     * 判断是否为微信注册类型
-     */
-    public boolean isUserType() {
-        return this == USER;
-    }
-
-
-    /**
-     * 判断是否为用户组类型
-     */
-    public boolean isUserGroupType() {
-        return this == USER_GROUP;
-    }
-
-    /**
-     * 判断是否为管理员类型
-     */
-    public boolean isAdminType() {
-        return this == ADMIN;
-    }
-
-    /**
-     * 判断类型是否有效（排除 UNKNOWN）
-     */
-    public boolean isValid() {
-        return this != UNKNOWN;
     }
 
     @Override

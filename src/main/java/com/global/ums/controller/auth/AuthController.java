@@ -2,6 +2,7 @@ package com.global.ums.controller.auth;
 
 import com.global.ums.dto.LoginDTO;
 import com.global.ums.dto.TokenDTO;
+import com.global.ums.dto.UserInfoTreeDTO;
 import com.global.ums.entity.User;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.AuthService;
@@ -37,6 +38,19 @@ public class AuthController {
         User user = authService.getUserByToken(token);
         if (user != null) {
             return AjaxResult.success(user);
+        } else {
+            return AjaxResult.errorI18n(401, "auth.token.invalid");
+        }
+    }
+
+    /**
+     * 获取当前登录用户的树状信息
+     */
+    @GetMapping("/info/tree")
+    public AjaxResult getUserInfoTree(@RequestHeader(value = "${jwt.token-header:Authorization}", required = false) String token) {
+        UserInfoTreeDTO tree = authService.getUserInfoTreeByToken(token);
+        if (tree != null) {
+            return AjaxResult.success(tree);
         } else {
             return AjaxResult.errorI18n(401, "auth.token.invalid");
         }

@@ -41,4 +41,15 @@ public interface UserPropertiesService extends IService<UserProperties> {
      * 包括: dataType, hidden, scope, description
      */
     void fillPropertyKeysInfo(UserProperties property);
+
+    /**
+     * 根据模板同步关联用户属性
+     *
+     * @param templateId 模板ID
+     * @param propertyDefaults 新增时的默认值集合
+     * @param deleteKeys 删除时的属性键集合
+     */
+    void syncTemplateProperties(Long templateId,
+                                List<Map<String, Object>> propertyDefaults,
+                                List<String> deleteKeys);
 } 

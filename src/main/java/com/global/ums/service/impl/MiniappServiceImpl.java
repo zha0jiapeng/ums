@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -259,7 +260,7 @@ public class MiniappServiceImpl implements IMiniappService {
     public AjaxResult getPhoneNumber(String code, String encryptedData, String iv, String sceneId) {
         try {
             if (StringUtils.isEmpty(code) || StringUtils.isEmpty(encryptedData) || StringUtils.isEmpty(iv)) {
-                return AjaxResult.errorI18n("common.param.empty");
+                return rollbackAndReturn(AjaxResult.errorI18n("common.param.empty"));
             }
             
             // 通过code获取session信息(包含openid和session_key)
@@ -293,7 +294,7 @@ public class MiniappServiceImpl implements IMiniappService {
             return AjaxResult.success(SpringUtils.getBean(MessageUtils.class).getMessage("miniapp.phone.get.success"), responseMap);
         } catch (WxErrorException e) {
             log.error("获取手机号失败", e);
-            return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("miniapp.phone.get.error", e.getMessage()));
+            return rollbackAndReturn(AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("miniapp.phone.get.error", e.getMessage())));
         }
     }
 
@@ -307,7 +308,7 @@ public class MiniappServiceImpl implements IMiniappService {
         map.put(UserPropertiesConstant.KEY_PASSWORD, PasswordUtils.toBytes(PasswordUtils.encryptPassword(defaultPassword, salt), salt));
         map.put(UserPropertiesConstant.KEY_NICKNAME,("微信用户"+ phoneNumber).getBytes(StandardCharsets.UTF_8));
         map.put(UserPropertiesConstant.KEY_CREATE_TIME, DateUtil.now().getBytes(StandardCharsets.UTF_8));
- 
+
         userPropertiesService.saveUserPropertiesMap(user.getId(),map);
     }
     /**
@@ -386,13 +387,13 @@ public class MiniappServiceImpl implements IMiniappService {
             // 处理扫码事件
             boolean result = handleScan(sceneId, QrcodeScanStatus.CONFIRMED.getCode());
             if (!result) {
-                return AjaxResult.errorI18n("miniapp.qrcode.scan.error");
+                return rollbackAndReturn(AjaxResult.errorI18n("miniapp.qrcode.scan.error"));
             }
             
             // 获取二维码信息
             QrcodeInfo qrcodeInfo = qrcodeInfoService.selectQrcodeInfoBySceneId(sceneId);
             if (qrcodeInfo == null) {
-                return AjaxResult.errorI18n("miniapp.qrcode.not.exists.or.expired");
+                return rollbackAndReturn(AjaxResult.errorI18n("miniapp.qrcode.not.exists.or.expired"));
             }
             
             // 判断二维码是否已经关联了用户
@@ -405,13 +406,13 @@ public class MiniappServiceImpl implements IMiniappService {
                 // 1. 根据openId查询微信用户映射关系
                 UserProperties userProperties = userPropertiesService.getKeyisExist("ma_openid", openId.getBytes(StandardCharsets.UTF_8));
                 if (userProperties == null) {
-                    return AjaxResult.errorI18n("miniapp.wechat.user.not.found");
+                    return rollbackAndReturn(AjaxResult.errorI18n("miniapp.wechat.user.not.found"));
                 }
 
                 // 2. 查询对应的系统用户信息
                 User user = userService.getById(userProperties.getUserId());
                 if (user == null) {
-                    return AjaxResult.errorI18n("miniapp.system.user.not.found");
+                    return rollbackAndReturn(AjaxResult.errorI18n("miniapp.system.user.not.found"));
                 }
                 String phoneNumber = null;
                 List<UserProperties> properties = userPropertiesService.getByUserId(user.getId(),null);
@@ -422,7 +423,7 @@ public class MiniappServiceImpl implements IMiniappService {
                     }
                 }
                 if(phoneNumber == null){
-                    return AjaxResult.errorI18n("miniapp.user.no.phone");
+                    return rollbackAndReturn(AjaxResult.errorI18n("miniapp.user.no.phone"));
                 }
                 TokenDTO tokenDTO = jwtUtils.generateToken(user.getId(), user.getType(), phoneNumber);
                 tokenInfo.put("token", tokenDTO);
@@ -435,7 +436,7 @@ public class MiniappServiceImpl implements IMiniappService {
             return AjaxResult.success(SpringUtils.getBean(MessageUtils.class).getMessage("miniapp.confirm.success"), tokenInfo);
         } catch (Exception e) {
             log.error("处理扫码登录失败", e);
-            return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("miniapp.scan.login.process.error", e.getMessage()));
+            return rollbackAndReturn(AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("miniapp.scan.login.process.error", e.getMessage())));
         }
     }
 
@@ -465,13 +466,13 @@ public class MiniappServiceImpl implements IMiniappService {
     public AjaxResult processInvitation(String openId, User user) {
         // 1. 验证参数
         if (openId == null || openId.trim().isEmpty()) {
-            return AjaxResult.errorI18n("miniapp.invitation.openid.empty");
+            return rollbackAndReturn(AjaxResult.errorI18n("miniapp.invitation.openid.empty"));
         }
 
         // 2. 验证被邀请用户是否存在
         User invitedUser = user;
         if (invitedUser == null) {
-            return AjaxResult.errorI18n("miniapp.user.not.found");
+            return rollbackAndReturn(AjaxResult.errorI18n("miniapp.user.not.found"));
         }
 
         // 3. 根据 openId (ma_openid) 找到邀请人
@@ -481,20 +482,20 @@ public class MiniappServiceImpl implements IMiniappService {
         );
 
         if (inviterProperty == null || inviterProperty.getUserId() == null) {
-            return AjaxResult.errorI18n("miniapp.invitation.inviter.not.found");
+            return rollbackAndReturn(AjaxResult.errorI18n("miniapp.invitation.inviter.not.found"));
         }
 
         Long inviterId = inviterProperty.getUserId();
 
         // 4. 验证邀请人不能是自己
         if (inviterId.equals(invitedUser.getId())) {
-            return AjaxResult.errorI18n("miniapp.invitation.cannot.invite.self");
+            return rollbackAndReturn(AjaxResult.errorI18n("miniapp.invitation.cannot.invite.self"));
         }
 
         // 5. 验证邀请人是否存在
         User inviter = userService.getById(inviterId);
         if (inviter == null) {
-            return AjaxResult.errorI18n("miniapp.invitation.inviter.not.found");
+            return rollbackAndReturn(AjaxResult.errorI18n("miniapp.invitation.inviter.not.found"));
         }
 
         // 6. 获取邀请人的 department-admin 属性
@@ -504,7 +505,7 @@ public class MiniappServiceImpl implements IMiniappService {
         );
 
         if (departmentProperty == null || departmentProperty.getValue() == null) {
-            return AjaxResult.errorI18n("miniapp.invitation.inviter.no.department");
+            return rollbackAndReturn(AjaxResult.errorI18n("miniapp.invitation.inviter.no.department"));
         }
 
         // 7. 解析 department-admin 的 value 作为 parentUserId
@@ -514,7 +515,7 @@ public class MiniappServiceImpl implements IMiniappService {
             parentUserId = Long.parseLong(departmentValue);
         } catch (Exception e) {
             log.error("解析邀请人的 department-admin 属性失败", e);
-            return AjaxResult.errorI18n("miniapp.invitation.inviter.department.invalid");
+            return rollbackAndReturn(AjaxResult.errorI18n("miniapp.invitation.inviter.department.invalid"));
         }
 
         // 8. 检查被邀请用户是否已经在该部门的用户组中
@@ -523,14 +524,14 @@ public class MiniappServiceImpl implements IMiniappService {
             .anyMatch(group -> parentUserId.equals(group.getParentUserId()));
 
         if (alreadyInGroup) {
-            return AjaxResult.errorI18n("miniapp.invitation.already.in.group");
+            return rollbackAndReturn(AjaxResult.errorI18n("miniapp.invitation.already.in.group"));
         }
 
         // 9. 添加用户组关系（parentUserId 是邀请人的 department-admin 的 value）
         boolean success = userGroupService.addUserGroup(invitedUser.getId(), parentUserId);
 
         if (!success) {
-            return AjaxResult.errorI18n("miniapp.invitation.failed");
+            return rollbackAndReturn(AjaxResult.errorI18n("miniapp.invitation.failed"));
         }
 
         // 10. 在被邀请人的属性中记录该部门的邀请人
@@ -638,5 +639,13 @@ public class MiniappServiceImpl implements IMiniappService {
             }
         }
         return AjaxResult.success(result);
+    }
+
+    /**
+     * 标记当前事务回滚并返回统一结果
+     */
+    private AjaxResult rollbackAndReturn(AjaxResult result) {
+        TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        return result;
     }
 } 

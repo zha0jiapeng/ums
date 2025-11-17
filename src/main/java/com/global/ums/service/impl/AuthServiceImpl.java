@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.global.ums.constant.UserPropertiesConstant;
 import com.global.ums.dto.LoginDTO;
 import com.global.ums.dto.TokenDTO;
+import com.global.ums.dto.UserInfoTreeDTO;
 import com.global.ums.entity.User;
 import com.global.ums.entity.UserProperties;
 import com.global.ums.result.AjaxResult;
@@ -97,28 +98,21 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public User getUserByToken(String token) {
-        if (!StringUtils.hasText(token)) {
-            return null;
-        }
-        
-        // 去除token前缀
-        if (token.startsWith(tokenPrefix + " ")) {
-            token = token.substring((tokenPrefix + " ").length());
-        }
-        
-        // 验证token是否有效
-        if (!jwtUtils.validateToken(token)) {
-            return null;
-        }
-        
-        // 从token中获取用户ID
-        Long userId = jwtUtils.getUserIdFromToken(token);
+        Long userId = extractUserIdFromToken(token);
         if (userId == null) {
             return null;
         }
         
-        // 获取用户信息
-        return userService.getUserWithProperties(userId);
+        return userService.getUserWithInheritedProperties(userId);
+    }
+
+    @Override
+    public UserInfoTreeDTO getUserInfoTreeByToken(String token) {
+        Long userId = extractUserIdFromToken(token);
+        if (userId == null) {
+            return null;
+        }
+        return userService.getUserInfoTree(userId);
     }
 
     /**
@@ -159,5 +153,25 @@ public class AuthServiceImpl implements AuthService {
 
         // 生成新的Token
         return jwtUtils.generateToken(user.getId(), user.getType(), user.getUsernameFromProperties());
+    }
+
+    /**
+     * 解析Token并提取用户ID
+     */
+    private Long extractUserIdFromToken(String token) {
+        if (!StringUtils.hasText(token)) {
+            return null;
+        }
+
+        String rawToken = token;
+        if (token.startsWith(tokenPrefix + " ")) {
+            rawToken = token.substring((tokenPrefix + " ").length());
+        }
+
+        if (!jwtUtils.validateToken(rawToken)) {
+            return null;
+        }
+
+        return jwtUtils.getUserIdFromToken(rawToken);
     }
 } 

@@ -2,6 +2,7 @@ package com.global.ums.service;
 
 import com.global.ums.dto.LoginDTO;
 import com.global.ums.dto.TokenDTO;
+import com.global.ums.dto.UserInfoTreeDTO;
 import com.global.ums.entity.User;
 import com.global.ums.result.AjaxResult;
 
@@ -25,6 +26,14 @@ public interface AuthService {
      * @return 用户信息
      */
     User getUserByToken(String token);
+
+    /**
+     * 通过token获取用户树状结构信息
+     *
+     * @param token 令牌
+     * @return 用户树
+     */
+    UserInfoTreeDTO getUserInfoTreeByToken(String token);
     
     /**
      * 用户登出

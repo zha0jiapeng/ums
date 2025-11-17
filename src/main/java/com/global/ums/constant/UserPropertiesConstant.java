@@ -70,5 +70,10 @@ public class UserPropertiesConstant {
      */
     public static final String KEY_INVITED_BY = "invited-by";
 
-    public static final String KEY_SD400MP_PASSWORD = "sd400mp-password";
+    public static final String KEY_STORAGE = "storage";
+
+    /**
+     * 模板关联键名
+     */
+    public static final String KEY_TEMPLATE_ID = "template_id";
 } 

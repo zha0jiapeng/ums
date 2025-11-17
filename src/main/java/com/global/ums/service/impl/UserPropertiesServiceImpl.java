@@ -3,6 +3,7 @@ package com.global.ums.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.global.ums.constant.UserPropertiesConstant;
 import com.global.ums.dto.PropertyTreeDTO;
 import com.global.ums.entity.UmsPropertyKeys;
 import com.global.ums.entity.User;
@@ -14,16 +15,22 @@ import com.global.ums.service.UmsPropertyKeysService;
 import com.global.ums.service.UserGroupService;
 import com.global.ums.service.UserPropertiesService;
 import com.global.ums.service.UserService;
+import com.global.ums.utils.KeyValidationUtils;
 
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -238,5 +245,151 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
         }
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void syncTemplateProperties(Long templateId,
+                                       List<Map<String, Object>> propertyDefaults,
+                                       List<String> deleteKeys) {
+        if (templateId == null) {
+            return;
+        }
 
+        Map<String, Object> defaultValues = flattenPropertyDefaults(propertyDefaults);
+        Map<String, byte[]> defaultValueBytes = convertAndValidateDefaults(defaultValues);
+        boolean needAdd = !defaultValueBytes.isEmpty();
+
+        List<String> keysToDelete = normalizeDeleteKeys(deleteKeys);
+        boolean needDelete = !keysToDelete.isEmpty();
+
+        if (!needAdd && !needDelete) {
+            return;
+        }
+
+        Set<Long> userIds = resolveTemplateUserIds(templateId);
+        if (userIds.isEmpty()) {
+            return;
+        }
+
+        List<UserProperties> existingProperties = this.list(new LambdaQueryWrapper<UserProperties>()
+                .in(UserProperties::getUserId, userIds));
+
+        if (needAdd) {
+            Map<Long, Map<String, UserProperties>> existingByUser = existingProperties.stream()
+                    .collect(Collectors.groupingBy(UserProperties::getUserId,
+                            Collectors.toMap(UserProperties::getKey,
+                                    Function.identity(),
+                                    (origin, replacement) -> origin,
+                                    HashMap::new)));
+
+            List<UserProperties> newProperties = new ArrayList<>();
+            for (Long userId : userIds) {
+                Map<String, UserProperties> userProps = existingByUser.getOrDefault(userId, Collections.emptyMap());
+                for (Map.Entry<String, byte[]> entry : defaultValueBytes.entrySet()) {
+                    String key = entry.getKey();
+                    if (userProps.containsKey(key)) {
+                        continue;
+                    }
+                    UserProperties prop = new UserProperties();
+                    prop.setUserId(userId);
+                    prop.setKey(key);
+                    prop.setValue(entry.getValue());
+                    newProperties.add(prop);
+                }
+            }
+            if (!newProperties.isEmpty()) {
+                this.saveBatch(newProperties);
+            }
+        }
+
+        if (needDelete) {
+            this.remove(new LambdaQueryWrapper<UserProperties>()
+                    .in(UserProperties::getUserId, userIds)
+                    .in(UserProperties::getKey, keysToDelete));
+        }
+    }
+
+    private Map<String, Object> flattenPropertyDefaults(List<Map<String, Object>> propertyDefaults) {
+        Map<String, Object> defaults = new LinkedHashMap<>();
+        if (propertyDefaults == null) {
+            return defaults;
+        }
+        for (Map<String, Object> entryMap : propertyDefaults) {
+            if (entryMap == null || entryMap.isEmpty()) {
+                continue;
+            }
+            for (Map.Entry<String, Object> entry : entryMap.entrySet()) {
+                String key = entry.getKey();
+                if (key == null || key.trim().isEmpty()) {
+                    continue;
+                }
+                defaults.put(key.trim(), entry.getValue());
+            }
+        }
+        return defaults;
+    }
+
+    private Map<String, byte[]> convertAndValidateDefaults(Map<String, Object> defaults) {
+        Map<String, byte[]> result = new LinkedHashMap<>();
+        if (defaults == null || defaults.isEmpty()) {
+            return result;
+        }
+        for (Map.Entry<String, Object> entry : defaults.entrySet()) {
+            String key = entry.getKey();
+            byte[] bytes = convertToBytes(entry.getValue());
+            long size = bytes == null ? 0 : bytes.length;
+            KeyValidationUtils.ValidationResult validationResult = KeyValidationUtils.validateKey(key, size);
+            if (!validationResult.isValid()) {
+                throw new IllegalArgumentException(validationResult.getErrorMessage());
+            }
+            result.put(key, bytes);
+        }
+        return result;
+    }
+
+    private List<String> normalizeDeleteKeys(List<String> deleteKeys) {
+        if (deleteKeys == null) {
+            return Collections.emptyList();
+        }
+        List<String> result = deleteKeys.stream()
+                .filter(key -> key != null && !key.trim().isEmpty())
+                .map(String::trim)
+                .collect(Collectors.toList());
+        return result.isEmpty() ? Collections.emptyList() : result;
+    }
+
+    private Set<Long> resolveTemplateUserIds(Long templateId) {
+        String templateIdString = String.valueOf(templateId);
+        List<UserProperties> templateBindings = this.list(
+                new LambdaQueryWrapper<UserProperties>()
+                        .eq(UserProperties::getKey, UserPropertiesConstant.KEY_TEMPLATE_ID)
+        );
+        Set<Long> userIds = new HashSet<>();
+        for (UserProperties binding : templateBindings) {
+            if (binding.getUserId() == null || binding.getValue() == null) {
+                continue;
+            }
+            String bindingTemplateId = bytesToString(binding.getValue());
+            if (templateIdString.equals(bindingTemplateId)) {
+                userIds.add(binding.getUserId());
+            }
+        }
+        return userIds;
+    }
+
+    private byte[] convertToBytes(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof byte[]) {
+            return (byte[]) value;
+        }
+        return String.valueOf(value).getBytes(StandardCharsets.UTF_8);
+    }
+
+    private String bytesToString(byte[] bytes) {
+        if (bytes == null) {
+            return null;
+        }
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
 }

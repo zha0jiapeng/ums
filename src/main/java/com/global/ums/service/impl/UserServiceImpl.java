@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.global.ums.constant.UserPropertiesConstant;
 import com.global.ums.dto.PropertyTreeDTO;
+import com.global.ums.dto.UserInfoTreeDTO;
 import com.global.ums.entity.User;
 import com.global.ums.entity.UserGroup;
 import com.global.ums.entity.UserProperties;
@@ -15,13 +16,16 @@ import com.global.ums.service.PasswordService;
 import com.global.ums.service.UserGroupService;
 import com.global.ums.service.UserPropertiesService;
 import com.global.ums.service.UserService;
+import com.global.ums.utils.KeyValidationUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -66,11 +70,166 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             user.setTypeDesc(UserType.fromValue(user.getType()).getDescription());
             
             // 获取dept和application用户列表
-            loadDeptAndApplicationUsers(user);
+           // loadDeptAndApplicationUsers(user);
         }
         return user;
     }
+
+    @Override
+    public User getUserWithInheritedProperties(Long id) {
+        User user = getUserWithProperties(id);
+        if (user == null) {
+            return null;
+        }
+        
+        List<UserProperties> mergedProperties = new ArrayList<>();
+        if (user.getProperties() != null) {
+            for (UserProperties property : user.getProperties()) {
+                addPropertyIfNotDuplicate(mergedProperties, property);
+            }
+        }
+
+        List<User> parentUsers = getAllParentUsers(id);
+        for (User parentUser : parentUsers) {
+            if (parentUser.getProperties() == null) {
+                continue;
+            }
+            for (UserProperties parentProperty : parentUser.getProperties()) {
+                addPropertyIfNotDuplicate(mergedProperties, parentProperty);
+            }
+        }
+
+        user.setProperties(mergedProperties);
+        return user;
+    }
+
+    /**
+     * 将属性添加到列表中，如果已存在相同key且value相同的属性，则不重复添加
+     */
+    private void addPropertyIfNotDuplicate(List<UserProperties> properties, UserProperties propertyToAdd) {
+        if (propertyToAdd == null) {
+            return;
+        }
+
+        for (UserProperties existing : properties) {
+            if (isSameKeyAndValue(existing, propertyToAdd)) {
+                return;
+            }
+        }
+        properties.add(propertyToAdd);
+    }
+
+    private boolean isSameKeyAndValue(UserProperties first, UserProperties second) {
+        if (first == null || second == null) {
+            return false;
+        }
+        if (first.getKey() == null || second.getKey() == null) {
+            return false;
+        }
+        if (!first.getKey().equals(second.getKey())) {
+            return false;
+        }
+
+        byte[] firstValue = first.getValue();
+        byte[] secondValue = second.getValue();
+
+        if (firstValue == null && secondValue == null) {
+            return true;
+        }
+        if (firstValue == null || secondValue == null) {
+            return false;
+        }
+
+        return Arrays.equals(firstValue, secondValue);
+    }
+
+    private List<User> getAllParentUsers(Long userId) {
+        List<User> parents = new ArrayList<>();
+        collectParentUsers(userId, parents, new HashSet<>());
+        return parents;
+    }
+
+    private void collectParentUsers(Long userId, List<User> parents, Set<Long> visited) {
+        if (userId == null || visited.contains(userId)) {
+            return;
+        }
+        visited.add(userId);
+
+        List<UserGroup> userGroups = getUserGroupService().getByUserId(userId);
+        if (userGroups == null || userGroups.isEmpty()) {
+            return;
+        }
+
+        for (UserGroup userGroup : userGroups) {
+            Long parentId = userGroup.getParentUserId();
+            if (parentId == null || visited.contains(parentId)) {
+                continue;
+            }
+            User parent = getUserWithProperties(parentId);
+            if (parent != null) {
+                parents.add(parent);
+            }
+            collectParentUsers(parentId, parents, visited);
+        }
+    }
     
+    @Override
+    public UserInfoTreeDTO getUserInfoTree(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return buildUserInfoTree(userId, new HashSet<>());
+    }
+
+    private UserInfoTreeDTO buildUserInfoTree(Long userId, Set<Long> path) {
+        if (userId == null || path.contains(userId)) {
+            return null;
+        }
+
+        path.add(userId);
+        User user = getUserWithProperties(userId);
+        if (user == null) {
+            path.remove(userId);
+            return null;
+        }
+
+        UserInfoTreeDTO node = convertToTreeNode(user);
+        List<UserGroup> relations = getUserGroupService().getByUserId(userId);
+        if (relations != null && !relations.isEmpty()) {
+            List<UserInfoTreeDTO> parents = new ArrayList<>();
+            for (UserGroup relation : relations) {
+                UserInfoTreeDTO parentNode = buildUserInfoTree(relation.getParentUserId(), path);
+                if (parentNode != null) {
+                    parents.add(parentNode);
+                }
+            }
+            if (!parents.isEmpty()) {
+                node.setParents(parents);
+            }
+        }
+
+        path.remove(userId);
+        return node;
+    }
+
+    private UserInfoTreeDTO convertToTreeNode(User user) {
+        UserInfoTreeDTO node = new UserInfoTreeDTO();
+        node.setUserId(user.getId());
+        node.setUniqueId(user.getUniqueId());
+        node.setType(user.getType());
+        node.setTypeDesc(user.getTypeDesc());
+        node.setProperties(user.getProperties());
+        return node;
+    }
+
+    /**
+     * 标记当前事务回滚并返回结果
+     */
+    private AjaxResult rollbackAndReturn(AjaxResult result) {
+        TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        return result;
+    }
+
     /**
      * 加载用户的dept和application用户列表
      */
@@ -189,7 +348,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public AjaxResult addUser(User user) {
         long count = count(new LambdaQueryWrapper<User>().eq(User::getUniqueId, user.getUniqueId()));
         if(count>0){
-            return AjaxResult.errorI18n("user.register.exists");
+            return rollbackAndReturn(AjaxResult.errorI18n("user.register.exists"));
         }
         boolean save = save(user);
         if (save) {
@@ -198,22 +357,43 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     passwordService.setPassword(user.getId(), defaultPassword);
                 } else {
                     if (user.getPassword().length() < 6) {
-                        return AjaxResult.errorI18n("user.password.too.simple");
+
+                        return rollbackAndReturn(AjaxResult.errorI18n("user.password.too.simple"));
                     }
                     passwordService.setPassword(user.getId(), user.getPassword());
                 }
-            }else if(user.getType()==3){
-                user.getProperties().forEach(prop -> {
-                    prop.setUserId(user.getId());
-                });
-                userPropertiesService.saveBatch(user.getProperties());
+            }else if(user.getType()>=3){
+                // 校验所有属性的 key
+                if (user.getProperties() != null && !user.getProperties().isEmpty()) {
+                    for (UserProperties prop : user.getProperties()) {
+                        String key = prop.getKey();
+                        // 获取属性值的字节大小
+                        long valueSize = prop.getValue() != null ? prop.getValue().length : 0;
+
+                        // 校验 key 和大小
+                        KeyValidationUtils.ValidationResult validationResult =
+                            KeyValidationUtils.validateKey(key, valueSize);
+
+                        if (!validationResult.isValid()) {
+                            // 校验失败，返回错误信息
+                            return rollbackAndReturn(AjaxResult.error(validationResult.getErrorMessage()));
+                        }
+                    }
+
+                    // 校验通过，设置 userId 并保存
+                    user.getProperties().forEach(prop -> {
+                        prop.setUserId(user.getId());
+                    });
+                    userPropertiesService.saveBatch(user.getProperties());
+                }
+
                 if(user.getParentId()!=null){
                     userGroupService.addUserGroup(user.getId(), user.getParentId());
                 }
             }
             return AjaxResult.successI18n("user.add.success");
         }else {
-            return AjaxResult.errorI18n("user.add.error");
+            return rollbackAndReturn(AjaxResult.errorI18n("user.add.error"));
         }
     }
 
@@ -223,13 +403,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 1. 检查用户是否存在
         User user = this.getById(id);
         if (user == null) {
-            return AjaxResult.errorI18n("user.not.found");
+            return rollbackAndReturn(AjaxResult.errorI18n("user.not.found"));
         }
 
         // 2. 检查用户是否在 user_group 表中被引用为上级用户
         List<UserGroup> childGroups = userGroupService.getByParentUserId(id);
         if (childGroups != null && !childGroups.isEmpty()) {
-            return AjaxResult.errorI18n("user.delete.has.children");
+            return rollbackAndReturn(AjaxResult.errorI18n("user.delete.has.children"));
         }
 
         // 3. 删除用户属性
@@ -247,7 +427,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (result) {
             return AjaxResult.successI18n("user.delete.success");
         } else {
-            return AjaxResult.errorI18n("user.delete.error");
+            return rollbackAndReturn(AjaxResult.errorI18n("user.delete.error"));
         }
     }
 

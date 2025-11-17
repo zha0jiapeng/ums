@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 组织/应用树节点实体
@@ -51,4 +52,16 @@ public class UmsTree {
      */
     @TableField(exist = false)
     private List<UmsTree> children;
+
+    /**
+     * 新增属性时的默认值集合，key 为属性键，value 为默认值
+     */
+    @TableField(exist = false)
+    private List<Map<String, Object>> propertyDefaults;
+
+    /**
+     * 删除属性时提交的属性键集合
+     */
+    @TableField(exist = false)
+    private List<String> deleteKeys;
 }

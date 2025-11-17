@@ -70,4 +70,5 @@ public class UserProperties {
      */
     @TableField(exist = false)
     private List<UserProperties> parentProperties;
+
 }

@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -149,11 +150,7 @@ public class UserGroupServiceImpl extends ServiceImpl<UserGroupMapper, UserGroup
         if (parentUser == null) {
             return false;
         }
-        
-        // 验证上级用户是否为组类型
-        if (parentUser.getType() == null || parentUser.getType() != UserType.USER_GROUP.getValue()) {
-            return false;
-        }
+
         long count = count(new LambdaQueryWrapper<UserGroup>().eq(UserGroup::getUserId, userId).eq(UserGroup::getParentUserId, parentUserId));
         return count == 0;
     }
@@ -162,7 +159,7 @@ public class UserGroupServiceImpl extends ServiceImpl<UserGroupMapper, UserGroup
     @Transactional(rollbackFor = Exception.class)
     public AjaxResult batchAddUserGroups(List<UserGroup> userGroups) {
         if (userGroups == null || userGroups.isEmpty()) {
-            return AjaxResult.error(400, "user.group.list.empty");
+            return rollbackAndReturn(AjaxResult.error(400, "user.group.list.empty"));
         }
         
         int successCount = 0;
@@ -236,9 +233,17 @@ public class UserGroupServiceImpl extends ServiceImpl<UserGroupMapper, UserGroup
         if (failCount == 0) {
             return AjaxResult.successI18n("user.group.batch.add.success");
         } else if (successCount == 0) {
-            return AjaxResult.errorI18n("user.group.batch.add.all.failed");
+            return rollbackAndReturn(AjaxResult.errorI18n("user.group.batch.add.all.failed"));
         } else {
             return AjaxResult.successI18n("user.group.batch.add.partial.success");
         }
+    }
+    
+    /**
+     * 标记当前事务回滚并返回结果
+     */
+    private AjaxResult rollbackAndReturn(AjaxResult result) {
+        TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        return result;
     }
 } 

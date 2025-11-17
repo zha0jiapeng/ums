@@ -5,6 +5,7 @@ import com.global.ums.annotation.RequireAuth;
 import com.global.ums.entity.UmsTree;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.UmsTreeService;
+import com.global.ums.service.UserPropertiesService;
 import com.global.ums.utils.MessageUtils;
 import com.global.ums.utils.SpringUtils;
 import io.swagger.annotations.Api;
@@ -29,6 +30,9 @@ public class UmsTreeController {
 
     @Autowired
     private UmsTreeService treeService;
+    
+    @Autowired
+    private UserPropertiesService userPropertiesService;
 
     @ApiOperation("分页查询树节点")
     @ApiImplicitParams({
@@ -90,6 +94,7 @@ public class UmsTreeController {
     public AjaxResult update(@RequestBody UmsTree tree) {
         try {
             treeService.updateNode(tree);
+            syncTemplateProperties(tree);
             String msg = SpringUtils.getBean(MessageUtils.class).getMessage("tree.node.update.success");
             return AjaxResult.success(msg, tree);
         } catch (IllegalArgumentException ex) {
@@ -99,6 +104,25 @@ public class UmsTreeController {
             log.error("更新节点失败", ex);
             return AjaxResult.errorI18n("tree.node.update.error");
         }
+    }
+
+    /**
+     * 根据操作类型同步模板关联的用户属性
+     */
+    private void syncTemplateProperties(UmsTree tree) {
+        if (tree == null || tree.getId() == null) {
+            return;
+        }
+        boolean hasAddPayload = tree.getPropertyDefaults() != null && !tree.getPropertyDefaults().isEmpty();
+        boolean hasDeletePayload = tree.getDeleteKeys() != null && !tree.getDeleteKeys().isEmpty();
+        if (!hasAddPayload && !hasDeletePayload) {
+            return;
+        }
+        userPropertiesService.syncTemplateProperties(
+                tree.getId(),
+                tree.getPropertyDefaults(),
+                tree.getDeleteKeys()
+        );
     }
 
     @ApiOperation("删除节点")

@@ -58,18 +58,11 @@ public class UserGroupController {
     }
 
     /**
-     * 删除用户组关系
+     * 批量删除用户组关系
      */
     @DeleteMapping("/delete")
-    public AjaxResult delete(@RequestBody UserGroup userGroup) {
-        Long userId = userGroup.getUserId();
-        Long parentUserId = userGroup.getParentUserId();
-        boolean result = userGroupService.remove(new LambdaQueryWrapper<UserGroup>().eq(UserGroup::getUserId, userId).eq(UserGroup::getParentUserId, parentUserId));
-        if (result) {
-            return AjaxResult.successI18n("user.group.delete.success");
-        } else {
-            return AjaxResult.errorI18n("user.group.delete.error");
-        }
+    public AjaxResult delete(@RequestBody List<UserGroup> userGroups) {
+        return userGroupService.batchDeleteUserGroups(userGroups);
     }
 
     /**

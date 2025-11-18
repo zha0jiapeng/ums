@@ -246,4 +246,56 @@ public class UserGroupServiceImpl extends ServiceImpl<UserGroupMapper, UserGroup
         TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
         return result;
     }
-} 
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AjaxResult batchDeleteUserGroups(List<UserGroup> userGroups) {
+        if (userGroups == null || userGroups.isEmpty()) {
+            return AjaxResult.error(400, "user.group.list.empty");
+        }
+
+        int successCount = 0;
+        int failCount = 0;
+        List<String> failDetails = new ArrayList<>();
+
+        for (UserGroup userGroup : userGroups) {
+            try {
+                Long userId = userGroup.getUserId();
+                Long parentUserId = userGroup.getParentUserId();
+
+                // 参数校验
+                if (userId == null || parentUserId == null) {
+                    failCount++;
+                    failDetails.add("userId or parentUserId is null");
+                    continue;
+                }
+
+                // 删除用户组关系
+                LambdaQueryWrapper<UserGroup> queryWrapper = new LambdaQueryWrapper<>();
+                queryWrapper.eq(UserGroup::getUserId, userId)
+                           .eq(UserGroup::getParentUserId, parentUserId);
+
+                boolean result = this.remove(queryWrapper);
+                if (result) {
+                    successCount++;
+                } else {
+                    failCount++;
+                    failDetails.add("userId=" + userId + ",parentUserId=" + parentUserId);
+                }
+            } catch (Exception e) {
+                failCount++;
+                failDetails.add("userId=" + userGroup.getUserId() + ",error=" + e.getMessage());
+                // 发生异常，触发事务回滚
+                throw new RuntimeException("user.group.batch.delete.error", e);
+            }
+        }
+
+        if (failCount == 0) {
+            return AjaxResult.successI18n("user.group.batch.delete.success");
+        } else if (successCount == 0) {
+            return rollbackAndReturn(AjaxResult.errorI18n("user.group.batch.delete.all.failed"));
+        } else {
+            return AjaxResult.successI18n("user.group.batch.delete.partial.success");
+        }
+    }
+}

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.global.ums.dto.PropertyTreeDTO;
 import com.global.ums.dto.UserInfoTreeDTO;
+import com.global.ums.dto.UserTreeNodeDTO;
 import com.global.ums.entity.User;
 import com.global.ums.result.AjaxResult;
 
@@ -53,13 +54,6 @@ public interface UserService extends IService<User> {
      */
     AjaxResult deleteUser(Long id);
 
-    /**
-     * 获取树状结构
-     *
-     * @param userId 用户ID
-     * @return 树状结构列表
-     */
-    List<PropertyTreeDTO> getTree(Long userId, String category);
 
     /**
      * 获取用户与父节点的树状结构（包含各节点属性）
@@ -68,4 +62,12 @@ public interface UserService extends IService<User> {
      * @return 树状信息
      */
     UserInfoTreeDTO getUserInfoTree(Long userId);
-} 
+
+    /**
+     * 根据类型获取用户树
+     *
+     * @param type 用户类型
+     * @return 树状用户列表
+     */
+    List<UserTreeNodeDTO> getUserTreeByType(Integer type);
+}

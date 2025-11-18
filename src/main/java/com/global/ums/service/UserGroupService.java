@@ -71,4 +71,12 @@ public interface UserGroupService extends IService<UserGroup> {
      * @return 添加结果
      */
     AjaxResult batchAddUserGroups(List<UserGroup> userGroups);
+
+    /**
+     * 批量删除用户组关系
+     *
+     * @param userGroups 用户组关系列表
+     * @return 删除结果
+     */
+    AjaxResult batchDeleteUserGroups(List<UserGroup> userGroups);
 } 

@@ -9,6 +9,8 @@ import com.global.ums.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -49,11 +51,10 @@ public class AuthController {
     @GetMapping("/info/tree")
     public AjaxResult getUserInfoTree(@RequestHeader(value = "${jwt.token-header:Authorization}", required = false) String token) {
         UserInfoTreeDTO tree = authService.getUserInfoTreeByToken(token);
-        if (tree != null) {
-            return AjaxResult.success(tree);
-        } else {
+        if (tree == null) {
             return AjaxResult.errorI18n(401, "auth.token.invalid");
         }
+        return AjaxResult.success(tree);
     }
 
     /**
@@ -80,5 +81,34 @@ public class AuthController {
             return AjaxResult.errorI18n("auth.refresh.token.invalid");
         }
         return AjaxResult.success(tokenDTO);
+    }
+
+    private UserInfoTreeDTO filterTreeByType(UserInfoTreeDTO node, Integer filterType) {
+        if (node == null || filterType == null) {
+            return node;
+        }
+        node.setParents(collectMatchingNodes(node.getParents(), filterType));
+        return node;
+    }
+
+    private List<UserInfoTreeDTO> collectMatchingNodes(List<UserInfoTreeDTO> parents, Integer filterType) {
+        List<UserInfoTreeDTO> result = new ArrayList<>();
+        if (parents == null || parents.isEmpty()) {
+            return result;
+        }
+        for (UserInfoTreeDTO parent : parents) {
+            if (parent == null) {
+                continue;
+            }
+            List<UserInfoTreeDTO> childMatches = collectMatchingNodes(parent.getParents(), filterType);
+            boolean matches = parent.getType() != null && parent.getType().equals(filterType);
+            if (matches) {
+                parent.setParents(childMatches);
+                result.add(parent);
+            } else {
+                result.addAll(childMatches);
+            }
+        }
+        return result;
     }
 } 

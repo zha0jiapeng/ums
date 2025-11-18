@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.global.ums.constant.UserPropertiesConstant;
 import com.global.ums.dto.PropertyTreeDTO;
 import com.global.ums.dto.UserInfoTreeDTO;
+import com.global.ums.dto.UserTreeNodeDTO;
 import com.global.ums.entity.User;
 import com.global.ums.entity.UserGroup;
 import com.global.ums.entity.UserProperties;
@@ -24,10 +25,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -95,6 +99,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 continue;
             }
             for (UserProperties parentProperty : parentUser.getProperties()) {
+                if(parentProperty.getKey().equals(UserPropertiesConstant.KEY_STORAGE)){
+                    parentProperty.setValue(parentProperty.getUserId().toString().getBytes(StandardCharsets.UTF_8));
+                }
                 addPropertyIfNotDuplicate(mergedProperties, parentProperty);
             }
         }
@@ -220,6 +227,81 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         node.setTypeDesc(user.getTypeDesc());
         node.setProperties(user.getProperties());
         return node;
+    }
+
+    @Override
+    public List<UserTreeNodeDTO> getUserTreeByType(Integer type) {
+        if (type == null) {
+            return new ArrayList<>();
+        }
+
+        List<User> users = this.list(new LambdaQueryWrapper<User>().eq(User::getType, type));
+        if (users.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Set<Long> userIds = users.stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        LambdaQueryWrapper<UserProperties> propWrapper = new LambdaQueryWrapper<>();
+        propWrapper.in(UserProperties::getUserId, userIds);
+        List<UserProperties> allProperties = userPropertiesService.list(propWrapper);
+
+        Map<Long, List<UserProperties>> propertiesMap = new HashMap<>();
+        for (UserProperties property : allProperties) {
+            userPropertiesService.fillPropertyKeysInfo(property);
+            Integer hidden = property.getHidden();
+            if (hidden != null && hidden == 1) {
+                continue;
+            }
+            propertiesMap.computeIfAbsent(property.getUserId(), id -> new ArrayList<>()).add(property);
+        }
+
+        Map<Long, UserTreeNodeDTO> nodeMap = new HashMap<>();
+        for (User user : users) {
+            UserTreeNodeDTO node = new UserTreeNodeDTO();
+            node.setUserId(user.getId());
+            node.setUniqueId(user.getUniqueId());
+            node.setType(user.getType());
+            node.setTypeDesc(UserType.fromValue(user.getType()).getDescription());
+            List<UserProperties> props = propertiesMap.get(user.getId());
+            node.setProperties(props != null ? props : new ArrayList<>());
+            nodeMap.put(user.getId(), node);
+        }
+
+        LambdaQueryWrapper<UserGroup> relationWrapper = new LambdaQueryWrapper<>();
+        relationWrapper.in(UserGroup::getUserId, userIds)
+                .in(UserGroup::getParentUserId, userIds);
+        List<UserGroup> relations = userGroupService.list(relationWrapper);
+
+        Map<Long, List<UserTreeNodeDTO>> childrenBuffer = new HashMap<>();
+        Set<Long> childrenWithParent = new HashSet<>();
+        for (UserGroup relation : relations) {
+            Long parentId = relation.getParentUserId();
+            Long childId = relation.getUserId();
+            if (parentId == null || childId == null) {
+                continue;
+            }
+            UserTreeNodeDTO parentNode = nodeMap.get(parentId);
+            UserTreeNodeDTO childNode = nodeMap.get(childId);
+            if (parentNode == null || childNode == null) {
+                continue;
+            }
+            childrenBuffer.computeIfAbsent(parentId, id -> new ArrayList<>()).add(childNode);
+            childrenWithParent.add(childId);
+        }
+
+        for (Map.Entry<Long, List<UserTreeNodeDTO>> entry : childrenBuffer.entrySet()) {
+            UserTreeNodeDTO parentNode = nodeMap.get(entry.getKey());
+            if (parentNode != null) {
+                parentNode.setChildren(entry.getValue());
+            }
+        }
+
+        return nodeMap.values().stream()
+                .filter(node -> !childrenWithParent.contains(node.getUserId()))
+                .collect(Collectors.toList());
     }
 
     /**
@@ -430,55 +512,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return rollbackAndReturn(AjaxResult.errorI18n("user.delete.error"));
         }
     }
-
-    @Override
-    public List<PropertyTreeDTO> getTree(Long userId, String category) {
-        // 参数验证
-        if (category == null || category.trim().isEmpty()) {
-            return new ArrayList<>();
-        }
-        
-        // 1. 获取所有指定category的用户ID集合
-        List<Long> categoryUserIds = userPropertiesService.list(new LambdaQueryWrapper<UserProperties>()
-                .eq(UserProperties::getKey, "category"))
-                .stream()
-                .filter(prop -> prop.getValue() != null && category.equals(new String(prop.getValue())))
-                .map(UserProperties::getUserId)
-                .distinct()
-                .collect(Collectors.toList());
-
-        if (categoryUserIds.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        // 2. 获取所有user_group中的用户关系
-        List<UserGroup> allUserGroups = getUserGroupService().list();
-
-        // 从user_group中的parent_user_id集合（即有父级且父级在category集合中的用户）
-        Set<Long> usersWithParentInCategory = allUserGroups.stream()
-                .filter(ug -> categoryUserIds.contains(ug.getParentUserId()))
-                .map(UserGroup::getUserId)
-                .collect(Collectors.toSet());
-
-        // 3. 找出category用户中真正的根（在category集合中没有父级的）
-        List<Long> rootUserIds = categoryUserIds.stream()
-                .filter(id -> !usersWithParentInCategory.contains(id))
-                .collect(Collectors.toList());
-
-        // 4. 为每个根用户构建树形结构
-        List<PropertyTreeDTO> result = new ArrayList<>();
-        Set<Long> processedUsers = new HashSet<>();
-
-        for (Long rootUserId : rootUserIds) {
-            PropertyTreeDTO rootNode = buildCategoryTree(rootUserId, categoryUserIds, processedUsers);
-            if (rootNode != null) {
-                result.add(rootNode);
-            }
-        }
-
-        return result;
-    }
-
     /**
      * 为单个根用户构建category树（只包含用户节点，不包含属性）
      */
@@ -523,5 +556,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             userGroupService = applicationContext.getBean(UserGroupService.class);
         }
         return userGroupService;
+    }
+
+    private boolean isSupportedTreeType(Integer userType) {
+        return userType != null && (userType.equals(UserType.APPLICATION.getValue())
+                || userType.equals(UserType.DEPT.getValue()));
     }
 } 

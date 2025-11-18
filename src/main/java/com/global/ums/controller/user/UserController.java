@@ -3,8 +3,8 @@ package com.global.ums.controller.user;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.global.ums.annotation.BrotliCompress;
 import com.global.ums.annotation.RequireAuth;
-import com.global.ums.dto.PropertyTreeDTO;
 import com.global.ums.entity.User;
+import com.global.ums.dto.UserTreeNodeDTO;
 import com.global.ums.enums.UserType;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.UserService;
@@ -133,33 +133,13 @@ public class UserController {
     }
 
     /**
-     * 用户属性树状结构
+     * 根据类型获取用户树
      */
-    @GetMapping("/getTree")
-    @BrotliCompress(quality = 4, threshold = 512)
-    public AjaxResult getTree(String category) {
-        // 参数验证
-        if (category == null || category.trim().isEmpty()) {
-            return AjaxResult.error(400, "category参数不能为空");
-        }
-        
-        Long userId = LoginUserContextHolder.getUserId();
-        Integer userType = LoginUserContextHolder.getUserType();
-
-        // 超级管理员(type=2)：获取全部的树状结构
-        if (userType != null && userType == 2) {
-            List<PropertyTreeDTO> tree = userService.getTree(userId, category);
-            // 返回成功，即使是空列表也是合法的
-            return AjaxResult.success(tree);
-        }
-
-        // 普通用户(type=1)：待定
-        if (userType != null && userType == 1) {
-            // TODO: 普通用户的逻辑待定
-            return AjaxResult.error(403, "功能开发中");
-        }
-
-        // 其他用户类型：无权限
-        return AjaxResult.error(403, "无权限访问");
+    @ApiOperation(value = "根据类型获取用户树", notes = "按照 user_group 关系构建树状结构，并附带每个用户的属性列表")
+    @ApiImplicitParam(name = "type", value = "用户类型", required = true, dataTypeClass = Integer.class, paramType = "query")
+    @GetMapping("/tree")
+    public AjaxResult getUserTreeByType(@RequestParam Integer type) {
+        List<UserTreeNodeDTO> tree = userService.getUserTreeByType(type);
+        return AjaxResult.success(tree);
     }
-} 
+}

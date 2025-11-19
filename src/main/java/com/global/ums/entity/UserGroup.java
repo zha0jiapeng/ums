@@ -10,7 +10,7 @@ import lombok.Data;
  * 用户组实体类
  */
 @Data
-@TableName("user_group")
+@TableName("ums_user_group")
 public class UserGroup {
     
     /**

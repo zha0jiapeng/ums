@@ -3,6 +3,7 @@ package com.global.ums.controller.user;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.global.ums.annotation.BrotliCompress;
 import com.global.ums.annotation.RequireAuth;
+import com.global.ums.dto.BatchGetKeysRequestDTO;
 import com.global.ums.dto.PropertyTreeDTO;
 import com.global.ums.entity.User;
 import com.global.ums.entity.UserProperties;
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -156,6 +158,33 @@ public class UserPropertiesController {
                 .eq(UserProperties::getUserId, userId));
         return AjaxResult.success(list);
     }
-    
 
+    /**
+     * 批量根据键列表获取属性
+     */
+    @PostMapping("/batchGet")
+    @BrotliCompress(quality = 4, threshold = 512)
+    public AjaxResult batchGetByKeys(@RequestBody BatchGetKeysRequestDTO request) {
+        // 参数校验
+        if (request == null || request.getKeys() == null || request.getKeys().isEmpty()) {
+            return AjaxResult.error(400, "keys参数不能为空");
+        }
+
+        Long userId = LoginUserContextHolder.getUserId();
+
+        // 提取 key 列表
+        List<String> keys = request.getKeys().stream()
+                .map(BatchGetKeysRequestDTO.KeyDTO::getKey)
+                .filter(key -> key != null && !key.trim().isEmpty())
+                .collect(Collectors.toList());
+
+        if (keys.isEmpty()) {
+            return AjaxResult.error(400, "有效的key不能为空");
+        }
+
+        // 调用 Service 批量查询
+        List<UserProperties> result = userPropertiesService.batchGetByUserIdAndKeys(userId, keys);
+
+        return AjaxResult.success(result);
+    }
 } 

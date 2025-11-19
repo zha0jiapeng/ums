@@ -10,11 +10,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 组织/应用树节点实体
+ * 组织/应用模板节点实体
  */
 @Data
-@TableName("ums_tree")
-public class UmsTree {
+@TableName("ums_template")
+public class Template {
 
     /**
      * 主键 ID
@@ -51,7 +51,7 @@ public class UmsTree {
      * 子节点集合（仅出参使用）
      */
     @TableField(exist = false)
-    private List<UmsTree> children;
+    private List<Template> children;
 
     /**
      * 新增属性时的默认值集合，key 为属性键，value 为默认值

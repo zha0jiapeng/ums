@@ -2,9 +2,9 @@ package com.global.ums.controller.system;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.global.ums.annotation.RequireAuth;
-import com.global.ums.entity.UmsTree;
+import com.global.ums.entity.Template;
 import com.global.ums.result.AjaxResult;
-import com.global.ums.service.UmsTreeService;
+import com.global.ums.service.TemplateService;
 import com.global.ums.service.UserPropertiesService;
 import com.global.ums.utils.MessageUtils;
 import com.global.ums.utils.SpringUtils;
@@ -19,22 +19,22 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * ums_tree CRUD 控制器
+ * ums_template CRUD 控制器
  */
 @Slf4j
-@Api(value = "组织应用树管理", tags = "组织应用树管理")
+@Api(value = "组织应用模板管理", tags = "组织应用模板管理")
 @RestController
 @RequestMapping("/system/tree")
 @RequireAuth
-public class UmsTreeController {
+public class TemplateController {
 
     @Autowired
-    private UmsTreeService treeService;
-    
+    private TemplateService templateService;
+
     @Autowired
     private UserPropertiesService userPropertiesService;
 
-    @ApiOperation("分页查询树节点")
+    @ApiOperation("分页查询模板节点")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "pageNum", value = "页码", defaultValue = "1", dataTypeClass = Integer.class),
             @ApiImplicitParam(name = "pageSize", value = "每页数量", defaultValue = "10", dataTypeClass = Integer.class),
@@ -46,27 +46,27 @@ public class UmsTreeController {
                            @RequestParam(defaultValue = "10") Integer pageSize,
                            @RequestParam(required = false) String name,
                            @RequestParam(required = false) Integer type) {
-        Page<UmsTree> page = new Page<>(pageNum, pageSize);
-        return AjaxResult.success(treeService.pageTrees(page, name, type));
+        Page<Template> page = new Page<>(pageNum, pageSize);
+        return AjaxResult.success(templateService.pageTrees(page, name, type));
     }
 
     @ApiOperation("查询子节点列表")
     @GetMapping("/children/{parentId}")
     public AjaxResult children(@PathVariable Long parentId) {
-        List<UmsTree> children = treeService.listChildren(parentId);
+        List<Template> children = templateService.listChildren(parentId);
         return AjaxResult.success(children);
     }
 
     @ApiOperation("获取完整树形结构")
     @GetMapping("/tree")
     public AjaxResult tree(@RequestParam(required = false) Integer type) {
-        return AjaxResult.success(treeService.buildTree(type));
+        return AjaxResult.success(templateService.buildTree(type));
     }
 
     @ApiOperation("节点详情")
     @GetMapping("/{id}")
     public AjaxResult detail(@PathVariable Long id) {
-        UmsTree node = treeService.getById(id);
+        Template node = templateService.getById(id);
         if (node == null) {
             return AjaxResult.errorI18n("tree.node.not.found");
         }
@@ -75,11 +75,11 @@ public class UmsTreeController {
 
     @ApiOperation(value = "新增节点", notes = "支持字段：name(名称)、description(描述)、type(类型:1=应用 2=部门)、parentId(父节点ID)、formJson(动态表单JSON)")
     @PostMapping
-    public AjaxResult create(@RequestBody UmsTree tree) {
+    public AjaxResult create(@RequestBody Template template) {
         try {
-            treeService.createNode(tree);
+            templateService.createNode(template);
             String msg = SpringUtils.getBean(MessageUtils.class).getMessage("tree.node.create.success");
-            return AjaxResult.success(msg, tree);
+            return AjaxResult.success(msg, template);
         } catch (IllegalArgumentException ex) {
             log.error("创建节点参数校验失败: {}", ex.getMessage(), ex);
             return AjaxResult.errorI18n(ex.getMessage());
@@ -91,12 +91,12 @@ public class UmsTreeController {
 
     @ApiOperation(value = "更新节点", notes = "支持字段：id(必填)、name(名称)、description(描述)、type(类型:1=应用 2=部门)、parentId(父节点ID)、formJson(动态表单JSON)")
     @PutMapping
-    public AjaxResult update(@RequestBody UmsTree tree) {
+    public AjaxResult update(@RequestBody Template template) {
         try {
-            treeService.updateNode(tree);
-            syncTemplateProperties(tree);
+            templateService.updateNode(template);
+            syncTemplateProperties(template);
             String msg = SpringUtils.getBean(MessageUtils.class).getMessage("tree.node.update.success");
-            return AjaxResult.success(msg, tree);
+            return AjaxResult.success(msg, template);
         } catch (IllegalArgumentException ex) {
             log.error("更新节点参数校验失败: {}", ex.getMessage(), ex);
             return AjaxResult.errorI18n(ex.getMessage());
@@ -109,19 +109,19 @@ public class UmsTreeController {
     /**
      * 根据操作类型同步模板关联的用户属性
      */
-    private void syncTemplateProperties(UmsTree tree) {
-        if (tree == null || tree.getId() == null) {
+    private void syncTemplateProperties(Template template) {
+        if (template == null || template.getId() == null) {
             return;
         }
-        boolean hasAddPayload = tree.getPropertyDefaults() != null && !tree.getPropertyDefaults().isEmpty();
-        boolean hasDeletePayload = tree.getDeleteKeys() != null && !tree.getDeleteKeys().isEmpty();
+        boolean hasAddPayload = template.getPropertyDefaults() != null && !template.getPropertyDefaults().isEmpty();
+        boolean hasDeletePayload = template.getDeleteKeys() != null && !template.getDeleteKeys().isEmpty();
         if (!hasAddPayload && !hasDeletePayload) {
             return;
         }
         userPropertiesService.syncTemplateProperties(
-                tree.getId(),
-                tree.getPropertyDefaults(),
-                tree.getDeleteKeys()
+                template.getId(),
+                template.getPropertyDefaults(),
+                template.getDeleteKeys()
         );
     }
 
@@ -130,7 +130,7 @@ public class UmsTreeController {
     public AjaxResult delete(@PathVariable Long id,
                              @RequestParam(defaultValue = "false") boolean cascade) {
         try {
-            treeService.removeNode(id, cascade);
+            templateService.removeNode(id, cascade);
             return AjaxResult.successI18n("tree.node.delete.success");
         } catch (IllegalArgumentException | IllegalStateException ex) {
             log.error("删除节点参数校验失败: {}", ex.getMessage(), ex);

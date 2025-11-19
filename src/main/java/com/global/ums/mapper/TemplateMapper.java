@@ -1,12 +1,12 @@
 package com.global.ums.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.global.ums.entity.UmsTree;
+import com.global.ums.entity.Template;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * ums_tree Mapper
+ * ums_template Mapper
  */
 @Mapper
-public interface UmsTreeMapper extends BaseMapper<UmsTree> {
+public interface TemplateMapper extends BaseMapper<Template> {
 }

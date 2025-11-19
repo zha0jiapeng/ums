@@ -5,13 +5,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.global.ums.constant.UserPropertiesConstant;
 import com.global.ums.dto.PropertyTreeDTO;
-import com.global.ums.entity.UmsPropertyKeys;
+import com.global.ums.entity.PropertyKeys;
 import com.global.ums.entity.User;
 import com.global.ums.entity.UserGroup;
 import com.global.ums.entity.UserProperties;
 import com.global.ums.mapper.UserPropertiesMapper;
 import com.global.ums.result.AjaxResult;
-import com.global.ums.service.UmsPropertyKeysService;
+import com.global.ums.service.PropertyKeysService;
 import com.global.ums.service.UserGroupService;
 import com.global.ums.service.UserPropertiesService;
 import com.global.ums.service.UserService;
@@ -42,7 +42,7 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
     private final ApplicationContext applicationContext;
     private UserService userService;
     private UserGroupService userGroupService;
-    private UmsPropertyKeysService propertyKeysService;
+    private PropertyKeysService propertyKeysService;
 
     public UserPropertiesServiceImpl(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
@@ -69,11 +69,11 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
     }
 
     /**
-     * 懒加载UmsPropertyKeysService，避免循环依赖
+     * 懒加载PropertyKeysService，避免循环依赖
      */
-    private UmsPropertyKeysService getPropertyKeysService() {
+    private PropertyKeysService getPropertyKeysService() {
         if (propertyKeysService == null) {
-            propertyKeysService = applicationContext.getBean(UmsPropertyKeysService.class);
+            propertyKeysService = applicationContext.getBean(PropertyKeysService.class);
         }
         return propertyKeysService;
     }
@@ -135,7 +135,56 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
         
         return userProperties;
     }
-    
+
+    @Override
+    public List<UserProperties> batchGetByUserIdAndKeys(Long userId, List<String> keys) {
+        if (keys == null || keys.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<UserProperties> result = new ArrayList<>();
+
+        // 批量查询用户的所有指定 key 的属性
+        LambdaQueryWrapper<UserProperties> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(UserProperties::getUserId, userId)
+                .in(UserProperties::getKey, keys);
+        List<UserProperties> userPropertiesList = this.list(queryWrapper);
+
+        // 转换为 Map 便于查找
+        Map<String, UserProperties> propertiesMap = userPropertiesList.stream()
+                .collect(Collectors.toMap(UserProperties::getKey, p -> p, (p1, p2) -> p1));
+
+        // 获取用户组信息，用于查找父级属性
+        List<UserGroup> userGroups = getUserGroupService().getByUserId(userId);
+
+        // 为每个 key 构建结果
+        for (String key : keys) {
+            UserProperties userProperty = propertiesMap.get(key);
+
+            // 收集父级属性
+            List<UserProperties> parentProperties = new ArrayList<>();
+            if (userGroups.size() != 0) {
+                collectAllParentProperties(userGroups, key, parentProperties, new ArrayList<>());
+            }
+
+            // 如果当前用户没有该属性，但有父级属性，创建一个空的用户属性对象
+            if (userProperty == null && !parentProperties.isEmpty()) {
+                userProperty = new UserProperties();
+                userProperty.setUserId(userId);
+                userProperty.setKey(key);
+                userProperty.setValue(null);
+            }
+
+            // 设置父级属性列表
+            if (userProperty != null) {
+                userProperty.setParentProperties(parentProperties);
+                result.add(userProperty);
+            }
+        }
+
+        return result;
+    }
+
     /**
      * 递归收集所有父级用户的指定key属性
      * 
@@ -235,7 +284,7 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
     @Override
     public void fillPropertyKeysInfo(UserProperties property) {
         if (property != null && property.getKey() != null) {
-            UmsPropertyKeys propertyKey = getPropertyKeysService().getByKey(property.getKey());
+            PropertyKeys propertyKey = getPropertyKeysService().getByKey(property.getKey());
             if (propertyKey != null) {
                 property.setDataType(propertyKey.getDataType());
                 property.setHidden(propertyKey.getHidden());

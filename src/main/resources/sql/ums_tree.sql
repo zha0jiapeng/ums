@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS `ums_tree` (
+CREATE TABLE IF NOT EXISTS `ums_template` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'id',
     `parent_id` BIGINT NOT NULL COMMENT '父级id',
     `name` VARCHAR(100) DEFAULT NULL COMMENT '名称' COLLATE 'utf8mb4_general_ci',

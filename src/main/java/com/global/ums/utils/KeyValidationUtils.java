@@ -1,7 +1,7 @@
 package com.global.ums.utils;
 
-import com.global.ums.entity.UmsPropertyKeys;
-import com.global.ums.service.UmsPropertyKeysService;
+import com.global.ums.entity.PropertyKeys;
+import com.global.ums.service.PropertyKeysService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -16,10 +16,10 @@ public class KeyValidationUtils {
 
     private static Map<String, KeyConfig> allowedKeys = new HashMap<>();
 
-    private static UmsPropertyKeysService propertyKeysService;
+    private static PropertyKeysService propertyKeysService;
 
     @Autowired
-    public void setPropertyKeysService(UmsPropertyKeysService propertyKeysService) {
+    public void setPropertyKeysService(PropertyKeysService propertyKeysService) {
         KeyValidationUtils.propertyKeysService = propertyKeysService;
     }
 
@@ -35,16 +35,16 @@ public class KeyValidationUtils {
         synchronized (KeyValidationUtils.class) {
             try {
                 if (propertyKeysService == null) {
-                    log.warn("UmsPropertyKeysService 未初始化，无法加载配置");
+                    log.warn("PropertyKeysService 未初始化，无法加载配置");
                     return;
                 }
 
                 // 从数据库加载配置
-                Map<String, UmsPropertyKeys> keysMap = propertyKeysService.getAllKeysMap();
+                Map<String, PropertyKeys> keysMap = propertyKeysService.getAllKeysMap();
                 Map<String, KeyConfig> newAllowedKeys = new HashMap<>();
 
-                for (Map.Entry<String, UmsPropertyKeys> entry : keysMap.entrySet()) {
-                    UmsPropertyKeys propertyKey = entry.getValue();
+                for (Map.Entry<String, PropertyKeys> entry : keysMap.entrySet()) {
+                    PropertyKeys propertyKey = entry.getValue();
                     KeyConfig keyConfig = new KeyConfig();
                     keyConfig.setKey(propertyKey.getKey());
                     keyConfig.setScope(propertyKey.getScope());
@@ -84,7 +84,7 @@ public class KeyValidationUtils {
 
         // 缓存未命中，尝试从数据库实时查询
         if (propertyKeysService != null) {
-            UmsPropertyKeys propertyKey = propertyKeysService.getByKey(key);
+            PropertyKeys propertyKey = propertyKeysService.getByKey(key);
             if (propertyKey != null) {
                 // 更新本地缓存
                 KeyConfig keyConfig = new KeyConfig();
@@ -112,7 +112,7 @@ public class KeyValidationUtils {
 
         // 缓存未命中，尝试从数据库实时查询
         if (config == null && propertyKeysService != null) {
-            UmsPropertyKeys propertyKey = propertyKeysService.getByKey(key);
+            PropertyKeys propertyKey = propertyKeysService.getByKey(key);
             if (propertyKey != null) {
                 config = new KeyConfig();
                 config.setKey(propertyKey.getKey());

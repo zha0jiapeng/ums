@@ -3,10 +3,10 @@ package com.global.ums.controller.system;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.global.ums.annotation.RequireAuth;
-import com.global.ums.entity.UmsPropertyKeys;
+import com.global.ums.entity.PropertyKeys;
 import com.global.ums.enums.DataType;
 import com.global.ums.result.AjaxResult;
-import com.global.ums.service.UmsPropertyKeysService;
+import com.global.ums.service.PropertyKeysService;
 import com.global.ums.utils.KeyValidationUtils;
 import com.global.ums.utils.MessageUtils;
 import com.global.ums.utils.SpringUtils;
@@ -29,10 +29,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/system/property-keys")
 @RequireAuth
-public class UmsPropertyKeysController {
+public class PropertyKeysController {
 
     @Autowired
-    private UmsPropertyKeysService propertyKeysService;
+    private PropertyKeysService propertyKeysService;
 
     /**
      * 获取所有属性键配置（分页）
@@ -51,17 +51,17 @@ public class UmsPropertyKeysController {
             @RequestParam(required = false) String key,
             @RequestParam(required = false) Integer scope) {
         try {
-            Page<UmsPropertyKeys> page = new Page<>(pageNum, pageSize);
-            LambdaQueryWrapper<UmsPropertyKeys> wrapper = new LambdaQueryWrapper<>();
+            Page<PropertyKeys> page = new Page<>(pageNum, pageSize);
+            LambdaQueryWrapper<PropertyKeys> wrapper = new LambdaQueryWrapper<>();
 
             if (key != null && !key.isEmpty()) {
-                wrapper.like(UmsPropertyKeys::getKey, key);
+                wrapper.like(PropertyKeys::getKey, key);
             }
             if (scope != null) {
-                wrapper.eq(UmsPropertyKeys::getScope, scope);
+                wrapper.eq(PropertyKeys::getScope, scope);
             }
 
-            Page<UmsPropertyKeys> result = propertyKeysService.page(page, wrapper);
+            Page<PropertyKeys> result = propertyKeysService.page(page, wrapper);
             return AjaxResult.success(result);
         } catch (Exception e) {
             return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.list.error", e.getMessage()));
@@ -75,7 +75,7 @@ public class UmsPropertyKeysController {
     @GetMapping("/list")
     public AjaxResult list() {
         try {
-            List<UmsPropertyKeys> list = propertyKeysService.list();
+            List<PropertyKeys> list = propertyKeysService.list();
             return AjaxResult.success(list);
         } catch (Exception e) {
             return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.list.error", e.getMessage()));
@@ -90,7 +90,7 @@ public class UmsPropertyKeysController {
     @GetMapping("/{id}")
     public AjaxResult getById(@PathVariable Long id) {
         try {
-            UmsPropertyKeys config = propertyKeysService.getById(id);
+            PropertyKeys config = propertyKeysService.getById(id);
             if (config == null) {
                 return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.not.found"));
             }
@@ -108,7 +108,7 @@ public class UmsPropertyKeysController {
     @GetMapping("/key/{key}")
     public AjaxResult getByKey(@PathVariable String key) {
         try {
-            UmsPropertyKeys config = propertyKeysService.getByKey(key);
+            PropertyKeys config = propertyKeysService.getByKey(key);
             if (config == null) {
                 return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.not.found"));
             }
@@ -123,10 +123,10 @@ public class UmsPropertyKeysController {
      */
     @ApiOperation(value = "添加属性键配置", notes = "新增属性键配置，添加成功后自动刷新缓存")
     @PostMapping
-    public AjaxResult add(@RequestBody UmsPropertyKeys propertyKeys) {
+    public AjaxResult add(@RequestBody PropertyKeys propertyKeys) {
         try {
             // 检查key是否已存在
-            UmsPropertyKeys existing = propertyKeysService.getByKey(propertyKeys.getKey());
+            PropertyKeys existing = propertyKeysService.getByKey(propertyKeys.getKey());
             if (existing != null) {
                 return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.key.exists"));
             }
@@ -151,14 +151,14 @@ public class UmsPropertyKeysController {
      */
     @ApiOperation(value = "更新属性键配置", notes = "修改属性键配置，更新成功后自动刷新缓存。注意：key字段不允许修改")
     @PutMapping
-    public AjaxResult update(@RequestBody UmsPropertyKeys propertyKeys) {
+    public AjaxResult update(@RequestBody PropertyKeys propertyKeys) {
         try {
             if (propertyKeys.getId() == null) {
                 return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.id.required"));
             }
 
             // 检查ID是否存在
-            UmsPropertyKeys existing = propertyKeysService.getById(propertyKeys.getId());
+            PropertyKeys existing = propertyKeysService.getById(propertyKeys.getId());
             if (existing == null) {
                 return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.not.found"));
             }
@@ -191,7 +191,7 @@ public class UmsPropertyKeysController {
     @DeleteMapping("/{id}")
     public AjaxResult delete(@PathVariable Long id) {
         try {
-            UmsPropertyKeys existing = propertyKeysService.getById(id);
+            PropertyKeys existing = propertyKeysService.getById(id);
             if (existing == null) {
                 return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.not.found"));
             }
@@ -228,7 +228,7 @@ public class UmsPropertyKeysController {
 
             // 检查每个 key 是否被使用
             for (Long id : ids) {
-                UmsPropertyKeys propertyKey = propertyKeysService.getById(id);
+                PropertyKeys propertyKey = propertyKeysService.getById(id);
                 if (propertyKey != null) {
                     if (propertyKeysService.isKeyUsedInUserProperties(propertyKey.getKey())) {
                         cannotDelete.add(id);

@@ -2,10 +2,10 @@ package com.global.ums.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.global.ums.entity.UmsPropertyKeys;
+import com.global.ums.entity.PropertyKeys;
 import com.global.ums.entity.UserProperties;
-import com.global.ums.mapper.UmsPropertyKeysMapper;
-import com.global.ums.service.UmsPropertyKeysService;
+import com.global.ums.mapper.PropertyKeysMapper;
+import com.global.ums.service.PropertyKeysService;
 import com.global.ums.service.UserPropertiesService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,12 +22,12 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Service
-public class UmsPropertyKeysServiceImpl extends ServiceImpl<UmsPropertyKeysMapper, UmsPropertyKeys> implements UmsPropertyKeysService {
+public class PropertyKeysServiceImpl extends ServiceImpl<PropertyKeysMapper, PropertyKeys> implements PropertyKeysService {
 
     /**
-     * 缓存所有配置，key -> UmsPropertyKeys
+     * 缓存所有配置，key -> PropertyKeys
      */
-    private final Map<String, UmsPropertyKeys> keysCache = new ConcurrentHashMap<>();
+    private final Map<String, PropertyKeys> keysCache = new ConcurrentHashMap<>();
 
     @Autowired
     private UserPropertiesService userPropertiesService;
@@ -38,16 +38,16 @@ public class UmsPropertyKeysServiceImpl extends ServiceImpl<UmsPropertyKeysMappe
     }
 
     @Override
-    public UmsPropertyKeys getByKey(String key) {
+    public PropertyKeys getByKey(String key) {
         // 先从缓存获取
-        UmsPropertyKeys config = keysCache.get(key);
+        PropertyKeys config = keysCache.get(key);
         if (config != null) {
             return config;
         }
 
         // 缓存未命中，从数据库查询
-        LambdaQueryWrapper<UmsPropertyKeys> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UmsPropertyKeys::getKey, key);
+        LambdaQueryWrapper<PropertyKeys> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PropertyKeys::getKey, key);
         config = getOne(wrapper);
 
         // 更新缓存
@@ -59,16 +59,16 @@ public class UmsPropertyKeysServiceImpl extends ServiceImpl<UmsPropertyKeysMappe
     }
 
     @Override
-    public Map<String, UmsPropertyKeys> getAllKeysMap() {
+    public Map<String, PropertyKeys> getAllKeysMap() {
         return new HashMap<>(keysCache);
     }
 
     @Override
     public void refreshCache() {
         try {
-            List<UmsPropertyKeys> allKeys = super.list();
+            List<PropertyKeys> allKeys = super.list();
             keysCache.clear();
-            for (UmsPropertyKeys key : allKeys) {
+            for (PropertyKeys key : allKeys) {
                 if (key.getKey() != null && !key.getKey().isEmpty()) {
                     keysCache.put(key.getKey(), key);
                 }

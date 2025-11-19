@@ -1,6 +1,6 @@
 package com.global.ums.config;
 
-import com.global.ums.service.UmsPropertyKeysService;
+import com.global.ums.service.PropertyKeysService;
 import com.global.ums.utils.KeyValidationUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 public class PropertyKeysRefreshTask {
 
     @Autowired
-    private UmsPropertyKeysService propertyKeysService;
+    private PropertyKeysService propertyKeysService;
 
     /**
      * 定时刷新属性键配置缓存

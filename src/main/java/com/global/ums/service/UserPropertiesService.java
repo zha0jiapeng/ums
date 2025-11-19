@@ -23,12 +23,21 @@ public interface UserPropertiesService extends IService<UserProperties> {
     
     /**
      * 根据用户ID和属性键获取属性
-     * 
+     *
      * @param userId 用户ID
      * @param key 属性键
      * @return 属性对象
      */
     UserProperties getByUserIdAndKey(Long userId, String key);
+
+    /**
+     * 批量根据用户ID和属性键列表获取属性
+     *
+     * @param userId 用户ID
+     * @param keys 属性键列表
+     * @return 属性对象列表
+     */
+    List<UserProperties> batchGetByUserIdAndKeys(Long userId, List<String> keys);
 
     UserProperties getKeyisExist(String key,byte[] value);
 

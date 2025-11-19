@@ -1,5 +1,6 @@
 package com.global.ums.service.impl;
 
+import cn.hutool.core.util.ByteUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -100,7 +101,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
             for (UserProperties parentProperty : parentUser.getProperties()) {
                 if(parentProperty.getKey().equals(UserPropertiesConstant.KEY_STORAGE)){
-                    parentProperty.setValue(parentProperty.getUserId().toString().getBytes(StandardCharsets.UTF_8));
+                    // 只有当 storage 的值为 true 时，才将其值设置为 userId
+                    if (parentProperty.getValue() != null) {
+                        String storageValue = new String(parentProperty.getValue(), StandardCharsets.UTF_8);
+                        if ("true".equalsIgnoreCase(storageValue)) {
+                            parentProperty.setValue(id.toString().getBytes(StandardCharsets.UTF_8));
+                        }
+                    }
                 }
                 addPropertyIfNotDuplicate(mergedProperties, parentProperty);
             }

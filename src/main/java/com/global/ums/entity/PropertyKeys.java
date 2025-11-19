@@ -16,7 +16,7 @@ import lombok.Data;
 @TableName("ums_property_keys")
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @ApiModel(description = "属性键配置")
-public class UmsPropertyKeys {
+public class PropertyKeys {
 
     /**
      * 主键ID

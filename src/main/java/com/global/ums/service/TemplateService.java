@@ -2,39 +2,39 @@ package com.global.ums.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.global.ums.entity.UmsTree;
+import com.global.ums.entity.Template;
 
 import java.util.List;
 
 /**
- * ums_tree Service
+ * ums_template Service
  */
-public interface UmsTreeService extends IService<UmsTree> {
+public interface TemplateService extends IService<Template> {
 
     /**
-     * 分页检索树节点
+     * 分页检索模板节点
      */
-    Page<UmsTree> pageTrees(Page<UmsTree> page, String name, Integer type);
+    Page<Template> pageTrees(Page<Template> page, String name, Integer type);
 
     /**
      * 根据父节点获取子节点列表
      */
-    List<UmsTree> listChildren(Long parentId);
+    List<Template> listChildren(Long parentId);
 
     /**
      * 构建树形结构
      */
-    List<UmsTree> buildTree(Integer type);
+    List<Template> buildTree(Integer type);
 
     /**
      * 创建节点
      */
-    boolean createNode(UmsTree tree);
+    boolean createNode(Template tree);
 
     /**
      * 更新节点
      */
-    boolean updateNode(UmsTree tree);
+    boolean updateNode(Template tree);
 
     /**
      * 删除节点

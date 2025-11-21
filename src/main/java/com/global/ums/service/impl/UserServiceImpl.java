@@ -9,12 +9,16 @@ import com.global.ums.dto.PropertyTreeDTO;
 import com.global.ums.dto.UserInfoTreeDTO;
 import com.global.ums.dto.UserTreeNodeDTO;
 import com.global.ums.entity.User;
+import com.global.ums.entity.Template;
 import com.global.ums.entity.UserGroup;
 import com.global.ums.entity.UserProperties;
+import com.global.ums.entity.PropertyKeys;
 import com.global.ums.enums.UserType;
 import com.global.ums.mapper.UserMapper;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.PasswordService;
+import com.global.ums.service.PropertyKeysService;
+import com.global.ums.service.TemplateService;
 import com.global.ums.service.UserGroupService;
 import com.global.ums.service.UserPropertiesService;
 import com.global.ums.service.UserService;
@@ -53,6 +57,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Autowired
     private UserGroupService userGroupService;
 
+    @Autowired
+    private TemplateService templateService;
+
+    @Autowired
+    private PropertyKeysService propertyKeysService;
+
     @Value("${user.default-password:123456}")
     private String defaultPassword;
     
@@ -64,10 +74,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             // 获取用户属性列表
             List<UserProperties> properties = userPropertiesService.getByUserId(id,false);
 
-            // 为每个属性填充 dataType（从 ums_property_keys 表查询）
+            // 为每个属性填充配置信息和用户类型
             if (properties != null && !properties.isEmpty()) {
                 properties.forEach(prop -> {
                     userPropertiesService.fillPropertyKeysInfo(prop);
+                    userPropertiesService.fillUserType(prop);
                 });
             }
 
@@ -86,11 +97,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user == null) {
             return null;
         }
-        
+
         List<UserProperties> mergedProperties = new ArrayList<>();
+        // 收集当前用户拥有的 key，用于判断是否覆盖父集
+        Set<String> userOwnedKeys = new HashSet<>();
+
         if (user.getProperties() != null) {
             for (UserProperties property : user.getProperties()) {
                 addPropertyIfNotDuplicate(mergedProperties, property);
+                userOwnedKeys.add(property.getKey());
             }
         }
 
@@ -100,6 +115,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 continue;
             }
             for (UserProperties parentProperty : parentUser.getProperties()) {
+                // 检查该 key 是否配置了覆盖父集属性
+                String key = parentProperty.getKey();
+                PropertyKeys propertyKey = propertyKeysService.getByKey(key);
+                boolean shouldOverrideParent = propertyKey != null
+                        && propertyKey.getOverrideParent() != null
+                        && propertyKey.getOverrideParent() == 1;
+
+                // 如果用户自己有这个 key 且配置为覆盖父集，则跳过父级的该属性
+                if (shouldOverrideParent && userOwnedKeys.contains(key)) {
+                    continue;
+                }
+
                 if(parentProperty.getKey().equals(UserPropertiesConstant.KEY_STORAGE)){
                     // 只有当 storage 的值为 true 时，才将其值设置为 userId
                     if (parentProperty.getValue() != null) {
@@ -337,7 +364,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             Long parentId = ug.getParentUserId();
             if (parentId != null) {
                 User parentUser = this.getById(parentId);
-                if (parentUser != null && parentUser.getType() == 3) {  // type=3 为用户组
+                if (parentUser != null && parentUser.getType() == 2) {  // type=2 为用户组
                     // 检查该用户的category属性
                     List<UserProperties> parentProps = userPropertiesService.getByUserId(parentId, false);
                     String category = null;
@@ -389,7 +416,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
     
     @Override
-    public Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, Long parentId) {
+    public Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, Long parentId, Integer groupType) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
 
         if (type != null) {
@@ -398,6 +425,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         if (uniqueId != null && !uniqueId.isEmpty()) {
             queryWrapper.like(User::getUniqueId, uniqueId);
+        }
+
+        // 如果指定了 groupType，根据 group_type 属性筛选用户组
+        if (groupType != null) {
+            // 查找所有拥有 group_type 属性且值匹配的用户ID
+            LambdaQueryWrapper<UserProperties> propWrapper = new LambdaQueryWrapper<>();
+            propWrapper.eq(UserProperties::getKey, UserPropertiesConstant.KEY_GROUP_TYPE)
+                    .eq(UserProperties::getValue, String.valueOf(groupType).getBytes());
+            List<UserProperties> groupTypeProps = userPropertiesService.list(propWrapper);
+
+            if (groupTypeProps == null || groupTypeProps.isEmpty()) {
+                // 如果没有符合条件的用户，返回空结果
+                return new Page<>(page.getCurrent(), page.getSize());
+            }
+
+            List<Long> userIds = groupTypeProps.stream()
+                    .map(UserProperties::getUserId)
+                    .distinct()
+                    .collect(java.util.stream.Collectors.toList());
+            queryWrapper.in(User::getId, userIds);
         }
 
         // 如果指定了 parentId，根据 user_group 表过滤子用户
@@ -419,10 +466,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             // 获取用户属性列表
             List<UserProperties> properties = userPropertiesService.getByUserId(user.getId(),null);
 
-            // 为每个属性填充 dataType（从 ums_property_keys 表查询）
+            // 为每个属性填充配置信息和用户类型
             if (properties != null && !properties.isEmpty()) {
                 properties.forEach(prop -> {
                     userPropertiesService.fillPropertyKeysInfo(prop);
+                    userPropertiesService.fillUserType(prop);
                 });
             }
 
@@ -451,7 +499,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     }
                     passwordService.setPassword(user.getId(), user.getPassword());
                 }
-            }else if(user.getType()>=3){
+            }else if(user.getType()==2){
                 // 校验所有属性的 key
                 if (user.getProperties() != null && !user.getProperties().isEmpty()) {
                     for (UserProperties prop : user.getProperties()) {
@@ -466,6 +514,43 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         if (!validationResult.isValid()) {
                             // 校验失败，返回错误信息
                             return rollbackAndReturn(AjaxResult.error(validationResult.getErrorMessage()));
+                        }
+                    }
+
+                    // 查找 templateId 属性
+                    Long templateId = null;
+                    for (UserProperties prop : user.getProperties()) {
+                        if (UserPropertiesConstant.KEY_TEMPLATE_ID.equals(prop.getKey()) && prop.getValue() != null) {
+                            try {
+                                String templateIdStr = new String(prop.getValue(), StandardCharsets.UTF_8);
+                                templateId = Long.parseLong(templateIdStr);
+                                break;
+                            } catch (NumberFormatException e) {
+                                // 如果解析失败，忽略
+                            }
+                        }
+                    }
+
+                    // 如果找到 templateId，自动添加 group_type 属性
+                    if (templateId != null) {
+                        Template template = templateService.getById(templateId);
+                        if (template != null && template.getType() != null) {
+                            // 检查是否已存在 group_type 属性
+                            boolean hasGroupType = false;
+                            for (UserProperties prop : user.getProperties()) {
+                                if (UserPropertiesConstant.KEY_GROUP_TYPE.equals(prop.getKey())) {
+                                    hasGroupType = true;
+                                    break;
+                                }
+                            }
+
+                            // 如果不存在，自动添加 group_type 属性
+                            if (!hasGroupType) {
+                                UserProperties groupTypeProp = new UserProperties();
+                                groupTypeProp.setKey(UserPropertiesConstant.KEY_GROUP_TYPE);
+                                groupTypeProp.setValue(String.valueOf(template.getType()).getBytes(StandardCharsets.UTF_8));
+                                user.getProperties().add(groupTypeProp);
+                            }
                         }
                     }
 
@@ -563,10 +648,5 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             userGroupService = applicationContext.getBean(UserGroupService.class);
         }
         return userGroupService;
-    }
-
-    private boolean isSupportedTreeType(Integer userType) {
-        return userType != null && (userType.equals(UserType.APPLICATION.getValue())
-                || userType.equals(UserType.DEPT.getValue()));
     }
 } 

@@ -61,6 +61,11 @@ public interface UserPropertiesService extends IService<UserProperties> {
     void fillPropertyKeysInfo(UserProperties property);
 
     /**
+     * 填充用户类型信息（从 ums_user 表查询）
+     */
+    void fillUserType(UserProperties property);
+
+    /**
      * 根据模板同步关联用户属性
      *
      * @param templateId 模板ID

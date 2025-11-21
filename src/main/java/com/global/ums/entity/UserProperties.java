@@ -66,6 +66,12 @@ public class UserProperties {
     private String description;
 
     /**
+     * 用户类型（从 ums_user 表查询获得，非数据库字段）
+     */
+    @TableField(exist = false)
+    private Integer userType;
+
+    /**
      * 所有父级用户的同key属性列表（非数据库字段）
      */
     @TableField(exist = false)

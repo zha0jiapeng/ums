@@ -40,9 +40,10 @@ public interface UserService extends IService<User> {
      * @param type 用户类型
      * @param uniqueId 唯一标识
      * @param parentId 上级用户ID
+     * @param groupType 用户组类型（1:部门 2:应用，仅当type=2时有效）
      * @return 分页用户视图对象
      */
-    Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, Long parentId);
+    Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, Long parentId, Integer groupType);
 
     AjaxResult addUser(User user);
 

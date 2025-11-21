@@ -85,22 +85,24 @@ public class UserController {
     /**
      * 分页查询用户 - 使用高压缩等级
      */
-    @ApiOperation(value = "分页查询用户", notes = "支持按用户类型、唯一标识、类别、属性类型、上级用户查询")
+    @ApiOperation(value = "分页查询用户", notes = "支持按用户类型、唯一标识、上级用户、用户组类型查询")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "pageNum", value = "页码", defaultValue = "1", dataTypeClass = Integer.class, paramType = "query"),
             @ApiImplicitParam(name = "pageSize", value = "每页数量", defaultValue = "10", dataTypeClass = Integer.class, paramType = "query"),
             @ApiImplicitParam(name = "type", value = "用户类型", dataTypeClass = Integer.class, paramType = "query"),
             @ApiImplicitParam(name = "uniqueId", value = "唯一标识（支持模糊查询）", dataTypeClass = String.class, paramType = "query"),
-            @ApiImplicitParam(name = "parentId", value = "上级用户ID", dataTypeClass = Long.class, paramType = "query")
+            @ApiImplicitParam(name = "parentId", value = "上级用户ID", dataTypeClass = Long.class, paramType = "query"),
+            @ApiImplicitParam(name = "groupType", value = "用户组类型（1:部门 2:应用，仅当type=2时有效）", dataTypeClass = Integer.class, paramType = "query")
     })
     @GetMapping("/page")
     public AjaxResult page(@RequestParam(defaultValue = "1") Integer pageNum,
                         @RequestParam(defaultValue = "10") Integer pageSize,
                         @RequestParam(required = false) Integer type,
                         @RequestParam(required = false) String uniqueId,
-                        @RequestParam(required = false) Long parentId) {
+                        @RequestParam(required = false) Long parentId,
+                        @RequestParam(required = false) Integer groupType) {
         Page<User> page = new Page<>(pageNum, pageSize);
-        Page<User> userPage = userService.getUserPage(page, type, uniqueId, parentId);
+        Page<User> userPage = userService.getUserPage(page, type, uniqueId, parentId, groupType);
         return AjaxResult.success(userPage);
     }
 

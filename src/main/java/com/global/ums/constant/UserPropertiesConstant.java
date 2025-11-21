@@ -75,5 +75,10 @@ public class UserPropertiesConstant {
     /**
      * 模板关联键名
      */
-    public static final String KEY_TEMPLATE_ID = "template_id";
+    public static final String KEY_TEMPLATE_ID = "templateId";
+
+    /**
+     * 用户组类型键名（1:应用 2:部门）
+     */
+    public static final String KEY_GROUP_TYPE = "group_type";
 } 

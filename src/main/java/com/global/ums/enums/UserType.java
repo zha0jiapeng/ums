@@ -2,7 +2,8 @@ package com.global.ums.enums;
 
 /**
  * 用户类型枚举
- * 用于标识用户的注册来源和类型
+ * 用于标识用户的类型
+ * 注意：部门和应用不再通过类型区分，而是通过属性区分
  */
 public enum UserType {
 
@@ -12,18 +13,9 @@ public enum UserType {
     USER(1, "user", "普通用户"),
 
     /**
-     * 超级管理员
-     */
-    ADMIN(2, "admin", "超级管理员"),
-
-    /**
      * 用户组
      */
-    APPLICATION(3, "application", "应用"),
-
-    DEPT(4, "dept", "部门"),
-
-
+    USER_GROUP(2, "user_group", "用户组"),
 
     /**
      * 未知类型

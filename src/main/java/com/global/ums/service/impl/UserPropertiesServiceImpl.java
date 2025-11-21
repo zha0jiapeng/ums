@@ -134,13 +134,31 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
                 .eq(UserProperties::getKey, key);
         UserProperties userProperties = this.getOne(queryWrapper);
         if (userProperties != null) {
+            fillUserType(userProperties);
             result.add(userProperties);
+        }
+
+        // 检查该 key 是否配置了覆盖父集属性
+        PropertyKeys propertyKey = getPropertyKeysService().getByKey(key);
+        boolean shouldOverrideParent = propertyKey != null
+                && propertyKey.getOverrideParent() != null
+                && propertyKey.getOverrideParent() == 1;
+
+        // 如果当前用户有该属性且配置为覆盖父集，则不查找父级属性
+        if (shouldOverrideParent && userProperties != null) {
+            return result;
         }
 
         // 收集所有父级用户的同key属性
         List<UserGroup> userGroups = getUserGroupService().getByUserId(userId);
         if (!userGroups.isEmpty()) {
             collectAllParentProperties(userGroups, key, result, new ArrayList<>());
+            // 为父级属性填充 userType
+            for (UserProperties property : result) {
+                if (property.getUserType() == null) {
+                    fillUserType(property);
+                }
+            }
         }
 
         return result;
@@ -302,6 +320,16 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
                 property.setHidden(propertyKey.getHidden());
                 property.setScope(propertyKey.getScope());
                 property.setDescription(propertyKey.getDescription());
+            }
+        }
+    }
+
+    @Override
+    public void fillUserType(UserProperties property) {
+        if (property != null && property.getUserId() != null) {
+            User user = getUserService().getById(property.getUserId());
+            if (user != null) {
+                property.setUserType(user.getType());
             }
         }
     }

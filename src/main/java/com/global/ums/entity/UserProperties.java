@@ -69,6 +69,7 @@ public class UserProperties {
      * 所有父级用户的同key属性列表（非数据库字段）
      */
     @TableField(exist = false)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private List<UserProperties> parentProperties;
 
 }

@@ -3,6 +3,7 @@ package com.global.ums.controller.system;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.global.ums.annotation.RequireAuth;
+import com.global.ums.dto.PropertyKeysVO;
 import com.global.ums.entity.PropertyKeys;
 import com.global.ums.enums.DataType;
 import com.global.ums.result.AjaxResult;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 属性键配置管理控制器
@@ -37,7 +39,7 @@ public class PropertyKeysController {
     /**
      * 获取所有属性键配置（分页）
      */
-    @ApiOperation(value = "分页查询属性键配置", notes = "支持按key模糊查询和scope精确查询")
+    @ApiOperation(value = "分页查询属性键配置", notes = "支持按key模糊查询和scope精确查询，返回结果包含枚举项")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "pageNum", value = "页码", defaultValue = "1", dataTypeClass = Integer.class, paramType = "query"),
             @ApiImplicitParam(name = "pageSize", value = "每页数量", defaultValue = "10", dataTypeClass = Integer.class, paramType = "query"),
@@ -62,7 +64,15 @@ public class PropertyKeysController {
             }
 
             Page<PropertyKeys> result = propertyKeysService.page(page, wrapper);
-            return AjaxResult.success(result);
+
+            // 转换为 VO（包含枚举项）
+            Page<PropertyKeysVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
+            List<PropertyKeysVO> voList = result.getRecords().stream()
+                    .map(pk -> propertyKeysService.getByKeyWithItems(pk.getKey()))
+                    .collect(Collectors.toList());
+            voPage.setRecords(voList);
+
+            return AjaxResult.success(voPage);
         } catch (Exception e) {
             return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.list.error", e.getMessage()));
         }
@@ -71,11 +81,11 @@ public class PropertyKeysController {
     /**
      * 获取所有属性键配置（不分页）
      */
-    @ApiOperation(value = "查询所有属性键配置", notes = "返回所有属性键配置，不分页")
+    @ApiOperation(value = "查询所有属性键配置", notes = "返回所有属性键配置，不分页，包含枚举项")
     @GetMapping("/list")
     public AjaxResult list() {
         try {
-            List<PropertyKeys> list = propertyKeysService.list();
+            List<PropertyKeysVO> list = propertyKeysService.listWithItems();
             return AjaxResult.success(list);
         } catch (Exception e) {
             return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.list.error", e.getMessage()));
@@ -85,12 +95,12 @@ public class PropertyKeysController {
     /**
      * 根据ID获取属性键配置
      */
-    @ApiOperation(value = "根据ID查询属性键配置", notes = "通过ID查询单个属性键配置详情")
+    @ApiOperation(value = "根据ID查询属性键配置", notes = "通过ID查询单个属性键配置详情，包含枚举项")
     @ApiImplicitParam(name = "id", value = "属性键ID", required = true, dataTypeClass = Long.class, paramType = "path")
     @GetMapping("/{id}")
     public AjaxResult getById(@PathVariable Long id) {
         try {
-            PropertyKeys config = propertyKeysService.getById(id);
+            PropertyKeysVO config = propertyKeysService.getByIdWithItems(id);
             if (config == null) {
                 return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.not.found"));
             }
@@ -103,12 +113,12 @@ public class PropertyKeysController {
     /**
      * 根据key获取属性键配置
      */
-    @ApiOperation(value = "根据key查询属性键配置", notes = "通过属性键名称查询配置详情")
+    @ApiOperation(value = "根据key查询属性键配置", notes = "通过属性键名称查询配置详情，包含枚举项")
     @ApiImplicitParam(name = "key", value = "属性键名称", required = true, dataTypeClass = String.class, paramType = "path")
     @GetMapping("/key/{key}")
     public AjaxResult getByKey(@PathVariable String key) {
         try {
-            PropertyKeys config = propertyKeysService.getByKey(key);
+            PropertyKeysVO config = propertyKeysService.getByKeyWithItems(key);
             if (config == null) {
                 return AjaxResult.error(SpringUtils.getBean(MessageUtils.class).getMessage("property.keys.not.found"));
             }

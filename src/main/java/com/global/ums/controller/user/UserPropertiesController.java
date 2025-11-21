@@ -104,16 +104,16 @@ public class UserPropertiesController {
     }
     
     /**
-     * 根据用户ID和键获取属性
+     * 根据用户ID和键获取属性（包括所有父级）
      */
     @GetMapping("/get")
     @BrotliCompress(quality = 4, threshold = 512)
     public AjaxResult getByUserIdAndKey(@RequestParam String key) {
         Long userId = LoginUserContextHolder.getUserId();
-        UserProperties userProperties = userPropertiesService.getByUserIdAndKey(userId, key);
+        List<UserProperties> userPropertiesList = userPropertiesService.getAllByUserIdAndKey(userId, key);
 
-        if (userProperties != null) {
-            return AjaxResult.success(userProperties);
+        if (userPropertiesList != null && !userPropertiesList.isEmpty()) {
+            return AjaxResult.success(userPropertiesList);
         } else {
             return AjaxResult.errorI18n("user.properties.not.found");
         }
@@ -172,10 +172,11 @@ public class UserPropertiesController {
 
         Long userId = LoginUserContextHolder.getUserId();
 
-        // 提取 key 列表
+        // 提取 key 列表（去重）
         List<String> keys = request.getKeys().stream()
                 .map(BatchGetKeysRequestDTO.KeyDTO::getKey)
                 .filter(key -> key != null && !key.trim().isEmpty())
+                .distinct()
                 .collect(Collectors.toList());
 
         if (keys.isEmpty()) {

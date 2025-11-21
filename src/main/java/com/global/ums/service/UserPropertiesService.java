@@ -31,6 +31,15 @@ public interface UserPropertiesService extends IService<UserProperties> {
     UserProperties getByUserIdAndKey(Long userId, String key);
 
     /**
+     * 根据用户ID和属性键获取所有属性（包括当前用户和所有父级用户的）
+     *
+     * @param userId 用户ID
+     * @param key 属性键
+     * @return 属性对象列表（第一个是当前用户的，后续是父级的）
+     */
+    List<UserProperties> getAllByUserIdAndKey(Long userId, String key);
+
+    /**
      * 批量根据用户ID和属性键列表获取属性
      *
      * @param userId 用户ID

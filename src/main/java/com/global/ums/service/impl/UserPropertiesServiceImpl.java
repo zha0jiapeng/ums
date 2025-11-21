@@ -109,31 +109,41 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
         LambdaQueryWrapper<UserProperties> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(UserProperties::getUserId, userId)
                 .eq(UserProperties::getKey, key);
-        
+
         // 首先查找当前用户的属性
         UserProperties userProperties = this.getOne(queryWrapper);
-        
-        // 收集所有父级用户的同key属性
-        List<UserProperties> parentProperties = new ArrayList<>();
-        List<UserGroup> userGroups = getUserGroupService().getByUserId(userId);   
-        if (userGroups.size() != 0) {
-            collectAllParentProperties(userGroups, key, parentProperties, new ArrayList<>());
+
+        // 如果当前用户没有该属性，向上查找父级用户的属性（保留原始的 user_id）
+        if (userProperties == null) {
+            List<UserGroup> userGroups = getUserGroupService().getByUserId(userId);
+            if (!userGroups.isEmpty()) {
+                userProperties = findFirstParentProperty(userGroups, key, new ArrayList<>());
+            }
         }
-        
-        // 如果当前用户没有该属性，但有父级属性，创建一个空的用户属性对象
-        if (userProperties == null && !parentProperties.isEmpty()) {
-            userProperties = new UserProperties();
-            userProperties.setUserId(userId);
-            userProperties.setKey(key);
-            userProperties.setValue(null);
-        }
-        
-        // 设置父级属性列表
-        if (userProperties != null) {
-            userProperties.setParentProperties(parentProperties);
-        }
-        
+
         return userProperties;
+    }
+
+    @Override
+    public List<UserProperties> getAllByUserIdAndKey(Long userId, String key) {
+        List<UserProperties> result = new ArrayList<>();
+
+        // 首先查找当前用户的属性
+        LambdaQueryWrapper<UserProperties> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(UserProperties::getUserId, userId)
+                .eq(UserProperties::getKey, key);
+        UserProperties userProperties = this.getOne(queryWrapper);
+        if (userProperties != null) {
+            result.add(userProperties);
+        }
+
+        // 收集所有父级用户的同key属性
+        List<UserGroup> userGroups = getUserGroupService().getByUserId(userId);
+        if (!userGroups.isEmpty()) {
+            collectAllParentProperties(userGroups, key, result, new ArrayList<>());
+        }
+
+        return result;
     }
 
     @Override
@@ -144,50 +154,52 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
 
         List<UserProperties> result = new ArrayList<>();
 
-        // 批量查询用户的所有指定 key 的属性
-        LambdaQueryWrapper<UserProperties> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(UserProperties::getUserId, userId)
-                .in(UserProperties::getKey, keys);
-        List<UserProperties> userPropertiesList = this.list(queryWrapper);
-
-        // 转换为 Map 便于查找
-        Map<String, UserProperties> propertiesMap = userPropertiesList.stream()
-                .collect(Collectors.toMap(UserProperties::getKey, p -> p, (p1, p2) -> p1));
-
-        // 获取用户组信息，用于查找父级属性
-        List<UserGroup> userGroups = getUserGroupService().getByUserId(userId);
-
-        // 为每个 key 构建结果
+        // 为每个 key 获取所有属性（包括当前用户和父级用户的）
         for (String key : keys) {
-            UserProperties userProperty = propertiesMap.get(key);
-
-            // 收集父级属性
-            List<UserProperties> parentProperties = new ArrayList<>();
-            if (userGroups.size() != 0) {
-                collectAllParentProperties(userGroups, key, parentProperties, new ArrayList<>());
-            }
-
-            // 如果当前用户没有该属性，但有父级属性，创建一个空的用户属性对象
-            if (userProperty == null && !parentProperties.isEmpty()) {
-                userProperty = new UserProperties();
-                userProperty.setUserId(userId);
-                userProperty.setKey(key);
-                userProperty.setValue(null);
-            }
-
-            // 设置父级属性列表
-            if (userProperty != null) {
-                userProperty.setParentProperties(parentProperties);
-                result.add(userProperty);
-            }
+            List<UserProperties> allProperties = getAllByUserIdAndKey(userId, key);
+            result.addAll(allProperties);
         }
 
         return result;
     }
 
     /**
+     * 递归查找第一个存在的父级用户属性
+     *
+     * @param userGroups 当前用户的用户组列表
+     * @param key 要查找的属性key
+     * @param visitedUsers 已访问的用户ID列表，防止循环引用
+     * @return 找到的第一个父级属性，如果未找到则返回null
+     */
+    private UserProperties findFirstParentProperty(List<UserGroup> userGroups, String key, List<Long> visitedUsers) {
+        for (UserGroup userGroup : userGroups) {
+            Long parentUserId = userGroup.getParentUserId();
+            if (parentUserId != null && !visitedUsers.contains(parentUserId)) {
+                visitedUsers.add(parentUserId);
+
+                // 查找父级用户的属性
+                UserProperties parentProperty = getDirectUserProperty(parentUserId, key);
+                if (parentProperty != null) {
+                    // 找到了，直接返回（保留原始的 userId）
+                    return parentProperty;
+                }
+
+                // 当前父级没有，继续递归查找父级的父级
+                List<UserGroup> parentGroups = getUserGroupService().getByUserId(parentUserId);
+                if (!parentGroups.isEmpty()) {
+                    UserProperties result = findFirstParentProperty(parentGroups, key, new ArrayList<>(visitedUsers));
+                    if (result != null) {
+                        return result;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * 递归收集所有父级用户的指定key属性
-     * 
+     *
      * @param userGroups 当前用户的用户组列表
      * @param key 要查找的属性key
      * @param parentProperties 收集父级属性的列表

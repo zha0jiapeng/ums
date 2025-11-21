@@ -1,6 +1,7 @@
 package com.global.ums.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.global.ums.dto.PropertyKeysVO;
 import com.global.ums.entity.PropertyKeys;
 
 import java.util.List;
@@ -37,4 +38,27 @@ public interface PropertyKeysService extends IService<PropertyKeys> {
      * @return true-已使用, false-未使用
      */
     boolean isKeyUsedInUserProperties(String key);
+
+    /**
+     * 根据ID获取属性键配置（包含枚举项）
+     *
+     * @param id 属性键ID
+     * @return 属性键配置VO（包含枚举项）
+     */
+    PropertyKeysVO getByIdWithItems(Long id);
+
+    /**
+     * 根据key获取属性键配置（包含枚举项）
+     *
+     * @param key 属性键名
+     * @return 属性键配置VO（包含枚举项）
+     */
+    PropertyKeysVO getByKeyWithItems(String key);
+
+    /**
+     * 获取所有属性键配置（包含枚举项）
+     *
+     * @return 属性键配置VO列表（包含枚举项）
+     */
+    List<PropertyKeysVO> listWithItems();
 }

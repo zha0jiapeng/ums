@@ -8,7 +8,8 @@
       "Bash(mvn compile:*)",
       "Bash(cat:*)",
       "Bash(mvn spring-boot:run:*)",
-      "Bash(del \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\entity\\UmsTree.java\" \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\mapper\\UmsTreeMapper.java\" \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\service\\UmsTreeService.java\" \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\service\\impl\\UmsTreeServiceImpl.java\" \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\controller\\system\\UmsTreeController.java\" \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\enums\\TreeType.java\")"
+      "Bash(del \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\entity\\UmsTree.java\" \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\mapper\\UmsTreeMapper.java\" \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\service\\UmsTreeService.java\" \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\service\\impl\\UmsTreeServiceImpl.java\" \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\controller\\system\\UmsTreeController.java\" \"D:\\workspace\\ums_new_server\\src\\main\\java\\com\\global\\ums\\enums\\TreeType.java\")",
+      "Bash(del \"D:\\workspace\\ums_new_server\\src\\main\\resources\\sql\\ums_property_keys_unique.sql\")"
     ],
     "deny": [],
     "ask": []

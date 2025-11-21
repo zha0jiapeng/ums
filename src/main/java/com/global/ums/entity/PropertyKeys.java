@@ -61,10 +61,4 @@ public class PropertyKeys {
      */
     @ApiModelProperty(value = "是否隐藏（0:否 1:是）", example = "0")
     private Integer hidden;
-
-    /**
-     * 是否覆盖父集属性
-     */
-    @ApiModelProperty(value = "是否覆盖父集属性（0:继承父集 1:只用当前用户的，忽略父集）", example = "0")
-    private Integer overrideParent;
 }

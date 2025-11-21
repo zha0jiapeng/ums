@@ -126,6 +126,10 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
 
     @Override
     public List<UserProperties> getAllByUserIdAndKey(Long userId, String key) {
+        User user = userService.getById(userId);
+        if(user == null){
+            return Collections.emptyList();
+        }
         List<UserProperties> result = new ArrayList<>();
 
         // 首先查找当前用户的属性
@@ -138,17 +142,6 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
             result.add(userProperties);
         }
 
-        // 检查该 key 是否配置了覆盖父集属性
-        PropertyKeys propertyKey = getPropertyKeysService().getByKey(key);
-        boolean shouldOverrideParent = propertyKey != null
-                && propertyKey.getOverrideParent() != null
-                && propertyKey.getOverrideParent() == 1;
-
-        // 如果当前用户有该属性且配置为覆盖父集，则不查找父级属性
-        if (shouldOverrideParent && userProperties != null) {
-            return result;
-        }
-
         // 收集所有父级用户的同key属性
         List<UserGroup> userGroups = getUserGroupService().getByUserId(userId);
         if (!userGroups.isEmpty()) {
@@ -157,6 +150,16 @@ public class UserPropertiesServiceImpl extends ServiceImpl<UserPropertiesMapper,
             for (UserProperties property : result) {
                 if (property.getUserType() == null) {
                     fillUserType(property);
+                }
+                if(property.getKey().equals(UserPropertiesConstant.KEY_STORAGE)){
+                    // 只有当 storage 的值为 true 时，才将其值设置为 userId
+                    if (property.getValue() != null) {
+                        String storageValue = new String(property.getValue(), StandardCharsets.UTF_8);
+                        if ("true".equalsIgnoreCase(storageValue)) {
+                            property.setUserType(1);
+                            property.setValue(user.getUniqueId().getBytes(StandardCharsets.UTF_8));
+                        }
+                    }
                 }
             }
         }

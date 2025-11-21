@@ -1,6 +1,8 @@
 package com.global.ums.service.impl;
 
+import cn.hutool.core.lang.generator.SnowflakeGenerator;
 import cn.hutool.core.util.ByteUtil;
+import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -12,17 +14,16 @@ import com.global.ums.entity.User;
 import com.global.ums.entity.Template;
 import com.global.ums.entity.UserGroup;
 import com.global.ums.entity.UserProperties;
-import com.global.ums.entity.PropertyKeys;
 import com.global.ums.enums.UserType;
 import com.global.ums.mapper.UserMapper;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.PasswordService;
-import com.global.ums.service.PropertyKeysService;
 import com.global.ums.service.TemplateService;
 import com.global.ums.service.UserGroupService;
 import com.global.ums.service.UserPropertiesService;
 import com.global.ums.service.UserService;
 import com.global.ums.utils.KeyValidationUtils;
+import com.global.ums.utils.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
@@ -60,12 +61,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Autowired
     private TemplateService templateService;
 
-    @Autowired
-    private PropertyKeysService propertyKeysService;
-
     @Value("${user.default-password:123456}")
     private String defaultPassword;
-    
+    @Autowired
+    private UserService userService;
+
     @Override
     public User getUserWithProperties(Long id) {
         // 获取用户基本信息
@@ -97,15 +97,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user == null) {
             return null;
         }
-
+        
         List<UserProperties> mergedProperties = new ArrayList<>();
-        // 收集当前用户拥有的 key，用于判断是否覆盖父集
-        Set<String> userOwnedKeys = new HashSet<>();
-
         if (user.getProperties() != null) {
             for (UserProperties property : user.getProperties()) {
                 addPropertyIfNotDuplicate(mergedProperties, property);
-                userOwnedKeys.add(property.getKey());
             }
         }
 
@@ -115,24 +111,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 continue;
             }
             for (UserProperties parentProperty : parentUser.getProperties()) {
-                // 检查该 key 是否配置了覆盖父集属性
-                String key = parentProperty.getKey();
-                PropertyKeys propertyKey = propertyKeysService.getByKey(key);
-                boolean shouldOverrideParent = propertyKey != null
-                        && propertyKey.getOverrideParent() != null
-                        && propertyKey.getOverrideParent() == 1;
-
-                // 如果用户自己有这个 key 且配置为覆盖父集，则跳过父级的该属性
-                if (shouldOverrideParent && userOwnedKeys.contains(key)) {
-                    continue;
-                }
-
                 if(parentProperty.getKey().equals(UserPropertiesConstant.KEY_STORAGE)){
                     // 只有当 storage 的值为 true 时，才将其值设置为 userId
                     if (parentProperty.getValue() != null) {
                         String storageValue = new String(parentProperty.getValue(), StandardCharsets.UTF_8);
                         if ("true".equalsIgnoreCase(storageValue)) {
-                            parentProperty.setValue(id.toString().getBytes(StandardCharsets.UTF_8));
+                            parentProperty.setUserType(1);
+                            parentProperty.setValue(user.getUniqueId().getBytes(StandardCharsets.UTF_8));
                         }
                     }
                 }
@@ -486,6 +471,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         long count = count(new LambdaQueryWrapper<User>().eq(User::getUniqueId, user.getUniqueId()));
         if(count>0){
             return rollbackAndReturn(AjaxResult.errorI18n("user.register.exists"));
+        }
+        if(StringUtils.isEmpty(user.getUniqueId())){
+            // 生成唯一的unique_id，确保数据库中不存在
+            String uniqueId;
+            do {
+                uniqueId = IdUtil.nanoId(32);
+            } while (this.count(new LambdaQueryWrapper<User>().eq(User::getUniqueId, uniqueId)) > 0);
+            user.setUniqueId(uniqueId);
         }
         boolean save = save(user);
         if (save) {

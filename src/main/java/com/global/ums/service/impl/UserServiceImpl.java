@@ -547,13 +547,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                             }
                         }
                     }
-
-                    // 校验通过，设置 userId 并保存
-                    user.getProperties().forEach(prop -> {
-                        prop.setUserId(user.getId());
-                    });
-                    userPropertiesService.saveBatch(user.getProperties());
                 }
+                // 校验通过，设置 userId 并保存
+                user.getProperties().forEach(prop -> {
+                    prop.setUserId(user.getId());
+                });
+                userPropertiesService.saveBatch(user.getProperties());
 
                 if(user.getParentId()!=null){
                     userGroupService.addUserGroup(user.getId(), user.getParentId());

@@ -71,4 +71,12 @@ public interface UserService extends IService<User> {
      * @return 树状用户列表
      */
     List<UserTreeNodeDTO> getUserTreeByType(Integer type);
+
+    /**
+     * 将用户关联到默认部门
+     * 如果默认部门不存在则创建
+     *
+     * @param userId 用户ID
+     */
+    void associateToDefaultDepartment(Long userId);
 }

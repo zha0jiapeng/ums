@@ -490,6 +490,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     }
                     passwordService.setPassword(user.getId(), user.getPassword());
                 }
+
+                // 自动关联到默认部门
+                associateToDefaultDepartment(user.getId());
             }else if(user.getType()==2){
                 // 校验所有属性的 key
                 if (user.getProperties() != null && !user.getProperties().isEmpty()) {
@@ -640,4 +643,68 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         return userGroupService;
     }
-} 
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void associateToDefaultDepartment(Long userId) {
+        if (userId == null) {
+            return;
+        }
+
+        // 查找默认部门
+        User defaultDept = this.getOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUniqueId, "default_dept"));
+
+        // 如果默认部门不存在，则创建
+        if (defaultDept == null) {
+            defaultDept = new User();
+            defaultDept.setUniqueId("default_dept");
+            defaultDept.setType(2); // 组织类型
+            this.save(defaultDept);
+
+            // 添加默认部门的属性
+            List<UserProperties> properties = new ArrayList<>();
+
+            // name=默认部门
+            UserProperties nameProp = new UserProperties();
+            nameProp.setUserId(defaultDept.getId());
+            nameProp.setKey("name");
+            nameProp.setValue("默认部门".getBytes(StandardCharsets.UTF_8));
+            properties.add(nameProp);
+
+            // pd-expert-privileges=admin
+            UserProperties privilegesProp = new UserProperties();
+            privilegesProp.setUserId(defaultDept.getId());
+            privilegesProp.setKey("pd-expert-privileges");
+            privilegesProp.setValue("admin".getBytes(StandardCharsets.UTF_8));
+            properties.add(privilegesProp);
+
+            // map=admin
+            UserProperties mapProp = new UserProperties();
+            mapProp.setUserId(defaultDept.getId());
+            mapProp.setKey("map");
+            mapProp.setValue("admin".getBytes(StandardCharsets.UTF_8));
+            properties.add(mapProp);
+
+            // storage=true
+            UserProperties storageProp = new UserProperties();
+            storageProp.setUserId(defaultDept.getId());
+            storageProp.setKey("storage");
+            storageProp.setValue("true".getBytes(StandardCharsets.UTF_8));
+            properties.add(storageProp);
+
+            // 批量保存属性
+            userPropertiesService.saveBatch(properties);
+        }
+
+        // 检查用户是否已经在默认部门中
+        long existingCount = getUserGroupService().count(new LambdaQueryWrapper<UserGroup>()
+                .eq(UserGroup::getUserId, userId)
+                .eq(UserGroup::getParentUserId, defaultDept.getId()));
+
+        // 如果还未关联，则添加到默认部门
+        if (existingCount == 0) {
+            getUserGroupService().addUserGroup(userId, defaultDept.getId());
+        }
+    }
+}

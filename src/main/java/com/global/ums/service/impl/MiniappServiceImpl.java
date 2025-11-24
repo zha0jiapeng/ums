@@ -282,6 +282,9 @@ public class MiniappServiceImpl implements IMiniappService {
                 user.setType(UserType.USER.getValue());
                 userService.save(user);
                 wechatRegister(phoneNumber, openid, unionid, user);
+
+                // 自动关联到默认部门
+                userService.associateToDefaultDepartment(user.getId());
             }
 
 

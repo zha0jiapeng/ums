@@ -4,11 +4,15 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.global.ums.constant.UserPropertiesConstant;
 import com.global.ums.entity.Template;
+import com.global.ums.entity.UserProperties;
 import com.global.ums.enums.TemplateType;
 import com.global.ums.mapper.TemplateMapper;
 import com.global.ums.service.TemplateService;
+import com.global.ums.service.UserPropertiesService;
 import com.global.ums.utils.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +25,9 @@ import java.util.stream.Collectors;
  */
 @Service
 public class TemplateServiceImpl extends ServiceImpl<TemplateMapper, Template> implements TemplateService {
+
+    @Autowired
+    private UserPropertiesService userPropertiesService;
 
     @Override
     public Page<Template> pageTrees(Page<Template> page, String name, Integer type) {
@@ -78,6 +85,10 @@ public class TemplateServiceImpl extends ServiceImpl<TemplateMapper, Template> i
         if (id == null) {
             return false;
         }
+
+        // 检查模板是否被用户引用
+        checkTemplateReference(id);
+
         if (!cascade) {
             long childCount = this.count(Wrappers.<Template>lambdaQuery().eq(Template::getParentId, id));
             if (childCount > 0) {
@@ -87,6 +98,31 @@ public class TemplateServiceImpl extends ServiceImpl<TemplateMapper, Template> i
             removeChildrenRecursive(id);
         }
         return this.removeById(id);
+    }
+
+    /**
+     * 检查模板是否被用户引用
+     * @param templateId 模板ID
+     */
+    private void checkTemplateReference(Long templateId) {
+        String templateIdString = String.valueOf(templateId);
+
+        // 查询 user_properties 表中 key='templateId' 的所有记录
+        List<UserProperties> templateBindings = userPropertiesService.list(
+            Wrappers.<UserProperties>lambdaQuery()
+                .eq(UserProperties::getKey, UserPropertiesConstant.KEY_TEMPLATE_ID)
+        );
+
+        // 检查是否有用户引用了该模板
+        for (UserProperties binding : templateBindings) {
+            if (binding.getValue() == null) {
+                continue;
+            }
+            String bindingTemplateId = new String(binding.getValue());
+            if (templateIdString.equals(bindingTemplateId)) {
+                throw new IllegalStateException("template.delete.referenced");
+            }
+        }
     }
 
     private void removeChildrenRecursive(Long parentId) {

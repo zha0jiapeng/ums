@@ -63,8 +63,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Value("${user.default-password:123456}")
     private String defaultPassword;
-    @Autowired
-    private UserService userService;
 
     @Override
     public User getUserWithProperties(Long id) {

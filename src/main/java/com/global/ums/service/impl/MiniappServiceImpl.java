@@ -87,7 +87,7 @@ public class MiniappServiceImpl implements IMiniappService {
                         false,         // checkPath设为false，允许页面未发布
                         "release",     // envVersion使用正式版
                         430,           // 宽度
-                        true,          // 自动配置线条颜色
+                        false,          // 自动配置线条颜色
                         new WxMaCodeLineColor("0", "0", "0"), // 线条颜色
                         true          // 不使用透明底色
                 );

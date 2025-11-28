@@ -91,6 +91,46 @@ public class UserPropertiesController {
         return userPropertiesService.saveUserProperties(userProperties);
     }
 
+    /**
+     * 添加/更新用户属性（文件上传）
+     */
+    @PostMapping("/updateBatch")
+    public AjaxResult updateBatch(@RequestBody List<UserProperties> properties) throws IOException {
+        Long userId = LoginUserContextHolder.getUserId();
+        User user = userService.getById(userId);
+        if(user == null){
+            return AjaxResult.error(400,"用户不存在");
+        }
+        for (UserProperties property : properties) {
+            String key = property.getKey();
+            if(StringUtils.isEmpty(key)){
+                return AjaxResult.error(400,"入参有误");
+            }
+
+            byte[] bytes = property.getValue();
+            int dataSize = bytes.length;
+            // 验证key是否被允许
+            KeyValidationUtils.ValidationResult validationResult = KeyValidationUtils.validateKey(key, dataSize);
+            if (!validationResult.isValid()) {
+                return AjaxResult.error(400, validationResult.getErrorMessage());
+            }
+
+            // 获取key配置
+            KeyValidationUtils.KeyConfig keyConfig = KeyValidationUtils.getKeyConfig(key);
+            UserProperties userProperties = new UserProperties();
+            userProperties.setUserId(userId);
+            userProperties.setKey(key);
+            userProperties.setValue(bytes);
+            // 自动推断数据类型
+            userProperties.setDataType(DataTypeUtils.inferDataType(bytes).getValue());
+            userProperties.setScope(keyConfig.getScope()); // 使用配置中的scope
+            userProperties.setHidden(keyConfig.getHidden()); // 使用配置中的hidden
+            userPropertiesService.saveUserProperties(userProperties);
+        }
+        return AjaxResult.successI18n("user.properties.update.success");
+    }
+
+
 
 
     @DeleteMapping("/delete/{id}")

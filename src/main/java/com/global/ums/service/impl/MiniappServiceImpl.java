@@ -309,7 +309,7 @@ public class MiniappServiceImpl implements IMiniappService {
         map.put(UserPropertiesConstant.KEY_USERNAME, phoneNumber.getBytes(StandardCharsets.UTF_8));
         String salt = PasswordUtils.generateSalt();
         map.put(UserPropertiesConstant.KEY_PASSWORD, PasswordUtils.toBytes(PasswordUtils.encryptPassword(defaultPassword, salt), salt));
-        map.put(UserPropertiesConstant.KEY_NICKNAME,("微信用户"+ phoneNumber).getBytes(StandardCharsets.UTF_8));
+        map.put(UserPropertiesConstant.KEY_NICKNAME,("wechat_user_"+phoneNumber).getBytes(StandardCharsets.UTF_8));
         map.put(UserPropertiesConstant.KEY_CREATE_TIME, DateUtil.now().getBytes(StandardCharsets.UTF_8));
 
         userPropertiesService.saveUserPropertiesMap(user.getId(),map);

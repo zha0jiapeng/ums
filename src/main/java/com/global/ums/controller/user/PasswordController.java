@@ -1,13 +1,11 @@
 package com.global.ums.controller.user;
 
 import com.global.ums.annotation.RequireAuth;
-import com.global.ums.entity.User;
 import com.global.ums.result.AjaxResult;
 import com.global.ums.service.PasswordService;
+import com.global.ums.utils.LoginUserContextHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-
-import javax.servlet.http.HttpServletRequest;
 
 /**
  * 密码控制器
@@ -26,17 +24,16 @@ public class PasswordController {
     @PostMapping("/change")
     public AjaxResult changePassword(
             @RequestParam String oldPassword,
-            @RequestParam String newPassword,
-            HttpServletRequest request) {
-        
-        // 从请求中获取当前用户
-        User currentUser = (User) request.getAttribute("currentUser");
-        if (currentUser == null) {
+            @RequestParam String newPassword) {
+
+        // 从 LoginUserContextHolder 获取当前用户ID
+        Long userId = LoginUserContextHolder.getUserId();
+        if (userId == null) {
             return AjaxResult.error(401, "未登录或登录已过期");
         }
-        
+
         // 修改密码
-        boolean result = passwordService.changePassword(currentUser.getId(), oldPassword, newPassword);
+        boolean result = passwordService.changePassword(userId, oldPassword, newPassword);
         if (result) {
             return AjaxResult.successI18n("password.change.success");
         } else {

@@ -96,13 +96,15 @@ public class UserController {
     })
     @GetMapping("/page")
     public AjaxResult page(@RequestParam(defaultValue = "1") Integer pageNum,
-                        @RequestParam(defaultValue = "10") Integer pageSize,
-                        @RequestParam(required = false) Integer type,
-                        @RequestParam(required = false) String uniqueId,
-                        @RequestParam(required = false) Long parentId,
-                        @RequestParam(required = false) Integer groupType) {
+                           @RequestParam(defaultValue = "10") Integer pageSize,
+                           @RequestParam(required = false) Integer type,
+                           @RequestParam(required = false) String uniqueId,
+                           @RequestParam(required = false) Long parentId,
+                           @RequestParam(required = false) Integer groupType,
+                           @RequestParam(required = false) Long templateId
+    ) {
         Page<User> page = new Page<>(pageNum, pageSize);
-        Page<User> userPage = userService.getUserPage(page, type, uniqueId, parentId, groupType);
+        Page<User> userPage = userService.getUserPage(page, type, uniqueId, parentId, groupType,templateId);
         return AjaxResult.success(userPage);
     }
 

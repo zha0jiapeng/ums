@@ -43,7 +43,7 @@ public interface UserService extends IService<User> {
      * @param groupType 用户组类型（1:部门 2:应用，仅当type=2时有效）
      * @return 分页用户视图对象
      */
-    Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, Long parentId, Integer groupType);
+    Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, Long parentId, Integer groupType, Long templateId);
 
     AjaxResult addUser(User user);
 

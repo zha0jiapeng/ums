@@ -14,6 +14,8 @@ import com.global.ums.entity.User;
 import com.global.ums.entity.Template;
 import com.global.ums.entity.UserGroup;
 import com.global.ums.entity.UserProperties;
+import com.global.ums.entity.PropertyKeyItems;
+import com.global.ums.mapper.PropertyKeyItemsMapper;
 import com.global.ums.enums.UserType;
 import com.global.ums.mapper.UserMapper;
 import com.global.ums.result.AjaxResult;
@@ -61,6 +63,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Autowired
     private TemplateService templateService;
 
+    @Autowired
+    private PropertyKeyItemsMapper propertyKeyItemsMapper;
+
     @Value("${user.default-password:123456}")
     private String defaultPassword;
 
@@ -96,11 +101,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return null;
         }
         
-        List<UserProperties> mergedProperties = new ArrayList<>();
+        // 1. 收集所有候选属性（包括用户自身和所有父级）
+        List<UserProperties> allCandidates = new ArrayList<>();
         if (user.getProperties() != null) {
-            for (UserProperties property : user.getProperties()) {
-                addPropertyIfNotDuplicate(mergedProperties, property);
-            }
+            allCandidates.addAll(user.getProperties());
         }
 
         List<User> parentUsers = getAllParentUsers(id);
@@ -119,12 +123,80 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         }
                     }
                 }
-                addPropertyIfNotDuplicate(mergedProperties, parentProperty);
+                allCandidates.add(parentProperty);
             }
         }
 
-        user.setProperties(mergedProperties);
+        if (allCandidates.isEmpty()) {
+            return user;
+        }
+
+        // 2. 获取涉及到的所有Key的优先级配置
+        Set<String> keys = allCandidates.stream()
+                .map(UserProperties::getKey)
+                .collect(Collectors.toSet());
+        
+        List<PropertyKeyItems> keyItems = propertyKeyItemsMapper.selectList(
+                new LambdaQueryWrapper<PropertyKeyItems>().in(PropertyKeyItems::getKey, keys)
+        );
+
+        // 构建优先级查找表: Key -> ItemValue -> Priority
+        Map<String, Map<String, Integer>> priorityMap = new HashMap<>();
+        if (keyItems != null) {
+            for (PropertyKeyItems item : keyItems) {
+                if (item.getKey() != null && item.getItemValue() != null && item.getPriority() != null) {
+                    priorityMap.computeIfAbsent(item.getKey(), k -> new HashMap<>())
+                            .put(item.getItemValue(), item.getPriority());
+                }
+            }
+        }
+
+        // 3. 过滤属性，保留高优先级的（priority值越小优先级越高）
+        Map<String, UserProperties> finalPropertiesMap = new HashMap<>();
+        
+        for (UserProperties prop : allCandidates) {
+            String key = prop.getKey();
+            
+            if (!finalPropertiesMap.containsKey(key)) {
+                finalPropertiesMap.put(key, prop);
+                continue;
+            }
+
+            // 存在冲突，进行优先级比较
+            UserProperties existingProp = finalPropertiesMap.get(key);
+            
+            // 如果key和value完全一样，视为相同属性，跳过
+            if (isSameKeyAndValue(existingProp, prop)) {
+                continue;
+            }
+
+            int existingPriority = getPriority(priorityMap, existingProp);
+            int newPriority = getPriority(priorityMap, prop);
+
+            // 如果新属性优先级更高（数值更小），则替换
+            if (newPriority < existingPriority) {
+                finalPropertiesMap.put(key, prop);
+            }
+            // 如果优先级相同或更低，保留原有的（实现"近者优先"，因为我们先添加了子类属性）
+        }
+
+        user.setProperties(new ArrayList<>(finalPropertiesMap.values()));
         return user;
+    }
+
+    /**
+     * 获取属性值的优先级，默认为 Integer.MAX_VALUE (最低)
+     */
+    private int getPriority(Map<String, Map<String, Integer>> priorityMap, UserProperties prop) {
+        if (prop == null || prop.getValue() == null) {
+            return Integer.MAX_VALUE;
+        }
+        Map<String, Integer> valueMap = priorityMap.get(prop.getKey());
+        if (valueMap == null) {
+            return Integer.MAX_VALUE;
+        }
+        String valueStr = new String(prop.getValue(), StandardCharsets.UTF_8);
+        return valueMap.getOrDefault(valueStr, Integer.MAX_VALUE);
     }
 
     /**
@@ -399,7 +471,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
     
     @Override
-    public Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, Long parentId, Integer groupType) {
+    public Page<User> getUserPage(Page<User> page, Integer type, String uniqueId, Long parentId, Integer groupType, Long templateId) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
 
         if (type != null) {
@@ -442,6 +514,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     .distinct()
                     .collect(java.util.stream.Collectors.toList());
             queryWrapper.in(User::getId, childUserIds);
+        }
+
+        if (templateId != null) {
+            // 查找所有拥有 group_type 属性且值匹配的用户ID
+            LambdaQueryWrapper<UserProperties> propWrapper = new LambdaQueryWrapper<>();
+            propWrapper.eq(UserProperties::getKey, UserPropertiesConstant.KEY_TEMPLATE_ID)
+                    .eq(UserProperties::getValue, String.valueOf(templateId).getBytes());
+            List<UserProperties> templateIdProps = userPropertiesService.list(propWrapper);
+
+            if (templateIdProps == null || templateIdProps.isEmpty()) {
+                // 如果没有符合条件的用户，返回空结果
+                return new Page<>(page.getCurrent(), page.getSize());
+            }
+
+            List<Long> userIds = templateIdProps.stream()
+                    .map(UserProperties::getUserId)
+                    .distinct()
+                    .collect(java.util.stream.Collectors.toList());
+            queryWrapper.in(User::getId, userIds);
         }
 
         Page<User> userPage = this.page(page, queryWrapper);

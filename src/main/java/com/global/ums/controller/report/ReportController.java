@@ -89,7 +89,7 @@ public class ReportController {
                 message.setMiniProgram(miniProgram);
 
                 // 防重入id，确保一次报警只推送一次（每个用户使用不同的clientMsgId）
-                message.setClientMsgId(dto.getClientMsgId() + "_" + openId);
+                message.setClientMsgId(openId);
                 message.setData(dataList);
 
                 wxMpService.getTemplateMsgService().sendTemplateMsg(message);

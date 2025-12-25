@@ -18,11 +18,6 @@ public class AlarmPushDTO {
     @NotNull(message = "userId不能为空")
     private Long userId;
 
-    /**
-     * 防重入id，传报警记录的主键确保一次报警只推送一次
-     */
-    @NotBlank(message = "clientMsgId不能为空")
-    private String clientMsgId;
 
     /**
      * 所属系统 (thing73)

@@ -21,7 +21,6 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 
-
 /**
  * 认证服务实现
  */
@@ -30,10 +29,10 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private UserService userService;
-    
+
     @Autowired
     private UserPropertiesService userPropertiesService;
-    
+
     @Autowired
     private PasswordService passwordService;
 
@@ -47,6 +46,7 @@ public class AuthServiceImpl implements AuthService {
     private RedisCache redisCache;
 
     public final String CAPTCHA_CODE_KEY = "captcha_codes:";
+
     /**
      * 用户登录
      */
@@ -55,23 +55,24 @@ public class AuthServiceImpl implements AuthService {
         String uuid = loginDTO.getUuid();
         String verifyKey = CAPTCHA_CODE_KEY + com.global.ums.utils.StringUtils.nvl(uuid, "");
         String result = redisCache.getCacheObject(verifyKey);
-        if(!loginDTO.getCode().equals(result)){
-            //验证码错误
+        if (!loginDTO.getCode().equals(result)) {
+            // 验证码错误
             return AjaxResult.errorI18n("auth.captcha.error");
         }
 
         String username = loginDTO.getUsername();
         Long userId = null;
         List<UserProperties> list = userPropertiesService.list(
-                new LambdaQueryWrapper<UserProperties>().eq(UserProperties::getKey, UserPropertiesConstant.KEY_USERNAME));
+                new LambdaQueryWrapper<UserProperties>().eq(UserProperties::getKey,
+                        UserPropertiesConstant.KEY_USERNAME));
         for (UserProperties userProperties : list) {
             String usernameItem = new String(userProperties.getValue());
-            if(usernameItem.equals(username)){
-                userId =  userProperties.getUserId();
+            if (usernameItem.equals(username)) {
+                userId = userProperties.getUserId();
             }
         }
         if (userId == null) {
-            //用户不存在
+            // 用户不存在
             return AjaxResult.errorI18n("auth.user.not.exists");
         }
         // 查询所有用户
@@ -79,15 +80,26 @@ public class AuthServiceImpl implements AuthService {
 
         // 用户不存在
         if (user == null) {
-            //用户不存在
+            // 用户不存在
             return AjaxResult.errorI18n("auth.user.not.exists");
         }
-        
+
         // 验证密码
         if (!passwordService.verifyPassword(user.getId(), loginDTO.getPassword())) {
-            //密码错误
+            // 密码错误
             return AjaxResult.errorI18n("auth.password.error");
         }
+
+        // 检查是否为超级管理员（is_root = 1）
+        UserProperties isRootProperty = userPropertiesService.getOne(
+                new LambdaQueryWrapper<UserProperties>()
+                        .eq(UserProperties::getUserId, userId)
+                        .eq(UserProperties::getKey, UserPropertiesConstant.KEY_IS_ROOT));
+        if (isRootProperty == null || !"1".equals(new String(isRootProperty.getValue()))) {
+            // 非管理员无权登录
+            return AjaxResult.errorI18n("auth.permission.denied");
+        }
+
         TokenDTO tokenDTO = jwtUtils.generateToken(user.getId(), user.getType(), username);
         // 生成token
         return AjaxResult.success(tokenDTO);
@@ -102,7 +114,7 @@ public class AuthServiceImpl implements AuthService {
         if (userId == null) {
             return null;
         }
-        
+
         return userService.getUserWithInheritedProperties(userId);
     }
 
@@ -133,15 +145,15 @@ public class AuthServiceImpl implements AuthService {
         if (!StringUtils.hasText(refreshToken)) {
             return null;
         }
-        
+
         // 去除token前缀
         if (refreshToken.startsWith(tokenPrefix + " ")) {
             refreshToken = refreshToken.substring((tokenPrefix + " ").length());
         }
-        
+
         // 判断是否为有效的Token（允许refreshToken或accessToken）
-        if (!jwtUtils.validateToken(refreshToken) || 
-            (!jwtUtils.isRefreshToken(refreshToken) && !jwtUtils.isAccessToken(refreshToken))) {
+        if (!jwtUtils.validateToken(refreshToken) ||
+                (!jwtUtils.isRefreshToken(refreshToken) && !jwtUtils.isAccessToken(refreshToken))) {
             return null;
         }
         // 从Token中获取用户信息
@@ -174,4 +186,4 @@ public class AuthServiceImpl implements AuthService {
 
         return jwtUtils.getUserIdFromToken(rawToken);
     }
-} 
+}

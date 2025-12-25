@@ -32,34 +32,33 @@ import javax.servlet.http.HttpServletResponse;
 @RequestMapping("/user/properties")
 @RequireAuth
 public class UserPropertiesController {
-    
+
     @Autowired
     private UserPropertiesService userPropertiesService;
 
     @Autowired
     private UserService userService;
-    
+
     /**
      * 添加/更新用户属性（文件上传）
      */
     @PostMapping("/update")
     public AjaxResult update(@RequestParam("key") String key,
-                             @RequestParam(value = "data",required = false) MultipartFile data,
-                             @RequestParam(value = "userId",required = false) Long userId
-                             ) throws IOException {
-        if(userId == null){
+            @RequestParam(value = "data", required = false) MultipartFile data,
+            @RequestParam(value = "userId", required = false) Long userId) throws IOException {
+        if (userId == null) {
             userId = LoginUserContextHolder.getUserId();
         }
-        if(StringUtils.isEmpty(key)){
-            return AjaxResult.error(400,"入参有误");
+        if (StringUtils.isEmpty(key)) {
+            return AjaxResult.error(400, "入参有误");
         }
         User user = userService.getById(userId);
-        if(user == null){
-            return AjaxResult.error(400,"用户不存在");
+        if (user == null) {
+            return AjaxResult.error(400, "用户不存在");
         }
         byte[] bytes = new byte[0];
-        Long dataSize = 0l ;
-        if(data != null){
+        Long dataSize = 0l;
+        if (data != null) {
             dataSize = data.getSize();
             bytes = data.getBytes();
         }
@@ -68,15 +67,14 @@ public class UserPropertiesController {
         if (!validationResult.isValid()) {
             return AjaxResult.error(400, validationResult.getErrorMessage());
         }
-        if(data == null){
+        if (data == null) {
             userPropertiesService.remove(
                     new LambdaQueryWrapper<UserProperties>()
                             .eq(UserProperties::getUserId, userId)
-                            .eq(UserProperties::getKey, key)
-            );
+                            .eq(UserProperties::getKey, key));
             return AjaxResult.successI18n("user.properties.delete.success");
         }
-        
+
         // 获取key配置
         KeyValidationUtils.KeyConfig keyConfig = KeyValidationUtils.getKeyConfig(key);
         UserProperties userProperties = new UserProperties();
@@ -98,13 +96,13 @@ public class UserPropertiesController {
     public AjaxResult updateBatch(@RequestBody List<UserProperties> properties) throws IOException {
         Long userId = LoginUserContextHolder.getUserId();
         User user = userService.getById(userId);
-        if(user == null){
-            return AjaxResult.error(400,"用户不存在");
+        if (user == null) {
+            return AjaxResult.error(400, "用户不存在");
         }
         for (UserProperties property : properties) {
             String key = property.getKey();
-            if(StringUtils.isEmpty(key)){
-                return AjaxResult.error(400,"入参有误");
+            if (StringUtils.isEmpty(key)) {
+                return AjaxResult.error(400, "入参有误");
             }
 
             byte[] bytes = property.getValue();
@@ -130,9 +128,6 @@ public class UserPropertiesController {
         return AjaxResult.successI18n("user.properties.update.success");
     }
 
-
-
-
     @DeleteMapping("/delete/{id}")
     public AjaxResult delete(@PathVariable Long id) {
         boolean result = userPropertiesService.removeById(id);
@@ -142,7 +137,7 @@ public class UserPropertiesController {
             return AjaxResult.errorI18n("user.properties.delete.error");
         }
     }
-    
+
     /**
      * 根据用户ID和键获取属性（包括所有父级）
      */
@@ -164,7 +159,7 @@ public class UserPropertiesController {
      */
     @GetMapping("/getReturnByte")
     @BrotliCompress(quality = 4, threshold = 512)
-    public void getByUserIdAndKeyReturnByte(@RequestParam String key,HttpServletResponse response) throws IOException {
+    public void getByUserIdAndKeyReturnByte(@RequestParam String key, HttpServletResponse response) throws IOException {
         Long userId = LoginUserContextHolder.getUserId();
         UserProperties userProperties = userPropertiesService.getByUserIdAndKey(userId, key);
         if (userProperties != null && userProperties.getValue() != null) {
@@ -172,12 +167,12 @@ public class UserPropertiesController {
             response.setContentType("application/octet-stream");
             response.setHeader("Content-Disposition", "attachment;");
             response.setContentLength(value.length);
-             // 写入响应流
+            // 写入响应流
             try (OutputStream outputStream = response.getOutputStream()) {
                 outputStream.write(value);
                 outputStream.flush();
             }
-        }else {
+        } else {
             // 设置错误状态码
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             response.setContentType("application/json;charset=UTF-8");
@@ -193,7 +188,6 @@ public class UserPropertiesController {
     @BrotliCompress(quality = 4, threshold = 512)
     public AjaxResult getByUserIdAndKey() {
         Long userId = LoginUserContextHolder.getUserId();
-        System.out.println(userId);
         List<UserProperties> list = userPropertiesService.list(new LambdaQueryWrapper<UserProperties>()
                 .eq(UserProperties::getUserId, userId));
         return AjaxResult.success(list);
@@ -228,4 +222,4 @@ public class UserPropertiesController {
 
         return AjaxResult.success(result);
     }
-} 
+}
